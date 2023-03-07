@@ -79,8 +79,8 @@ impl Ndisapi {
             DeviceIoControl(
                 self.driver_handle,
                 IOCTL_NDISRD_GET_TCPIP_INTERFACES,
-                Some(adapters.as_mut_ptr() as _),
-                size_of::<TcpAdapterList>() as u32,
+                None,
+                0,
                 Some(adapters.as_mut_ptr() as _),
                 size_of::<TcpAdapterList>() as u32,
                 None,
