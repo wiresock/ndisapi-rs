@@ -1,3 +1,11 @@
+//! # Submodule: Static filter functions
+//!
+//! This submodule provides methods for controlling the NDIS filter driver, including retrieving and setting
+//! the static filter table, resetting the filter statistics, and resetting the static filter table. These
+//! methods are parameterized by the size of the static filter table. The submodule is part of a larger module
+//! (NDISAPI) that provides high-level API for the Windows packet Filter on Windows.
+//!
+
 use std::mem::size_of;
 
 use windows::{core::Result, Win32::Foundation::GetLastError, Win32::System::IO::DeviceIoControl};
@@ -6,7 +14,21 @@ use super::Ndisapi;
 use crate::driver::*;
 
 impl Ndisapi {
-    /// Queries static filter table from the NDIS filter driver
+    /// This function retrieves the static filter table from the NDIS filter driver and stores it in
+    /// the provided `filter_table` argument.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `N`: The size of the static filter table.
+    ///
+    /// # Arguments
+    ///
+    /// * `filter_table`: A mutable reference to a `StaticFilterTable<N>` object, which will store the
+    ///   queried static filter table.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<()>`: If successful, returns `Ok(())`. Otherwise, returns an error.
     pub fn get_packet_filter_table<const N: usize>(
         &self,
         filter_table: &mut StaticFilterTable<N>,
@@ -31,7 +53,21 @@ impl Ndisapi {
         }
     }
 
-    /// Queries static filter table from the NDIS filter driver and resets the filter statistics
+    /// This function retrieves the static filter table from the NDIS filter driver, stores it in
+    /// the provided `filter_table` argument, and resets the filter statistics.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `N`: The size of the static filter table.
+    ///
+    /// # Arguments
+    ///
+    /// * `filter_table`: A mutable reference to a `StaticFilterTable<N>` object, which will store the
+    ///   queried static filter table.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<()>`: If successful, returns `Ok(())`. Otherwise, returns an error.
     pub fn get_packet_filter_table_reset_stats<const N: usize>(
         &self,
         filter_table: &mut StaticFilterTable<N>,
@@ -56,7 +92,12 @@ impl Ndisapi {
         }
     }
 
-    /// Queries static filter table size from the NDIS filter driver
+    /// This function retrieves the size of the static filter table from the NDIS filter driver.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<usize>`: If successful, returns the size of the static filter table as `Ok(usize)`.
+    ///   Otherwise, returns an error.
     pub fn get_packet_filter_table_size(&self) -> Result<usize> {
         let mut size = 0u32;
 
@@ -80,7 +121,12 @@ impl Ndisapi {
         }
     }
 
-    /// Removes static filter table from the NDIS filter driver
+    /// This function resets the static filter table in the NDIS filter driver, effectively
+    /// removing all filters from the table.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<()>`: If successful, returns `Ok(())`. Otherwise, returns an error.
     pub fn reset_packet_filter_table(&self) -> Result<()> {
         let result = unsafe {
             DeviceIoControl(
@@ -102,7 +148,20 @@ impl Ndisapi {
         }
     }
 
-    /// Loads static filter table into the NDIS filter driver
+    /// This function takes a static filter table and sets it as the current filter table
+    /// in the NDIS filter driver.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `N`: The number of filters in the static filter table.
+    ///
+    /// # Arguments
+    ///
+    /// * `filter_table: &StaticFilterTable<N>`: A reference to the static filter table to be loaded.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<()>`: If successful, returns `Ok(())`. Otherwise, returns an error.
     pub fn set_packet_filter_table<const N: usize>(
         &self,
         filter_table: &StaticFilterTable<N>,

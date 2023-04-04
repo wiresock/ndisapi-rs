@@ -9,7 +9,7 @@ use windows::core::Result;
 const OID_802_3_CURRENT_ADDRESS: u32 = 0x01010102;
 
 fn main() -> Result<()> {
-    let driver = ndisapi::Ndisapi::new(ndisapi::NDISRD_DRIVER_NAME)
+    let driver = ndisapi::Ndisapi::new("NDISRD")
         .expect("WinpkFilter driver is not installed or failed to load!");
 
     println!(
@@ -21,10 +21,8 @@ fn main() -> Result<()> {
 
     for (index, adapter) in adapters.iter().enumerate() {
         // Display the information about each network interface provided by the get_tcpip_bound_adapters_info
-        let network_interface_name = match Ndisapi::get_friendly_adapter_name(adapter.get_name()) {
-            Ok(interface_name) => interface_name,
-            Err(err) => format!(r#"UNKNOWN NETWORK INTERFACE Error code: {err}"#),
-        };
+        let network_interface_name = Ndisapi::get_friendly_adapter_name(adapter.get_name())
+            .expect("Unkown network interface");
         println!(
             "{}. {}\n\t{}",
             index + 1,
@@ -33,13 +31,8 @@ fn main() -> Result<()> {
         );
         println!("\t Medium: {}", adapter.get_medium());
         println!(
-            "\t MAC: {:02X}:{:02X}:{:02X}:{:02X}:{:02X}:{:02X}",
-            adapter.get_hw_address()[0],
-            adapter.get_hw_address()[1],
-            adapter.get_hw_address()[2],
-            adapter.get_hw_address()[3],
-            adapter.get_hw_address()[4],
-            adapter.get_hw_address()[5]
+            "\t MAC: {}",
+            MacAddress::from_slice(adapter.get_hw_address()).unwrap_or_default()
         );
         println!("\t MTU: {}", adapter.get_mtu());
         println!(
@@ -151,7 +144,7 @@ fn main() -> Result<()> {
         }
     }
 
-    let mtu_decrement = ndisapi::Ndisapi::get_mtu_decrement().unwrap_or(0);
+    let mtu_decrement = driver.get_mtu_decrement().unwrap_or(0);
 
     println!("\nSystem wide MTU decrement: {mtu_decrement}");
 

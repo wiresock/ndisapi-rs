@@ -596,7 +596,7 @@ fn main() -> Result<()> {
 
     interface_index -= 1;
 
-    let driver = ndisapi::Ndisapi::new(ndisapi::NDISRD_DRIVER_NAME)
+    let driver = ndisapi::Ndisapi::new("NDISRD")
         .expect("WinpkFilter driver is not installed or failed to load!");
 
     println!(
@@ -679,63 +679,7 @@ fn main() -> Result<()> {
             }
 
             // Print some informations about the sliced packet
-            match SlicedPacket::from_ethernet(&ib.buffer.0) {
-                Err(value) => println!("Err {value:?}"),
-                Ok(value) => {
-                    if let Some(Ethernet2(value)) = value.link {
-                        println!(
-                            " Ethernet {} => {}",
-                            ndisapi::MacAddress::from_slice(&value.source()[..]).unwrap(),
-                            ndisapi::MacAddress::from_slice(&value.destination()[..]).unwrap(),
-                        )
-                    }
-
-                    match value.ip {
-                        Some(Ipv4(value, extensions)) => {
-                            println!(
-                                "  Ipv4 {:?} => {:?}",
-                                value.source_addr(),
-                                value.destination_addr()
-                            );
-                            if !extensions.is_empty() {
-                                println!("    {extensions:?}");
-                            }
-                        }
-                        Some(Ipv6(value, extensions)) => {
-                            println!(
-                                "  Ipv6 {:?} => {:?}",
-                                value.source_addr(),
-                                value.destination_addr()
-                            );
-                            if !extensions.is_empty() {
-                                println!("    {extensions:?}");
-                            }
-                        }
-                        None => {}
-                    }
-
-                    match value.transport {
-                        Some(Icmpv4(value)) => println!(" Icmpv4 {value:?}"),
-                        Some(Icmpv6(value)) => println!(" Icmpv6 {value:?}"),
-                        Some(Udp(value)) => println!(
-                            "   UDP {:?} -> {:?}",
-                            value.source_port(),
-                            value.destination_port()
-                        ),
-                        Some(Tcp(value)) => {
-                            println!(
-                                "   TCP {:?} -> {:?}",
-                                value.source_port(),
-                                value.destination_port()
-                            );
-                        }
-                        Some(Unknown(ip_protocol)) => {
-                            println!("  Unknwon Protocol (ip protocol number {ip_protocol:?}")
-                        }
-                        None => {}
-                    }
-                }
-            }
+            print_packet_info(&mut ib);
 
             // Re-inject the packet back into the network stack
             if ib.get_device_flags() == ndisapi::DirectionFlags::PACKET_FLAG_ON_SEND {
@@ -753,4 +697,86 @@ fn main() -> Result<()> {
     }
 
     Ok(())
+}
+
+/// Print detailed information about a network packet.
+///
+/// This function takes an `IntermediateBuffer` containing a network packet and prints various
+/// details about the packet, such as Ethernet, IPv4, IPv6, ICMPv4, ICMPv6, UDP, and TCP information.
+///
+/// # Arguments
+///
+/// * `packet` - A mutable reference to an `ndisapi::IntermediateBuffer` containing the network packet.
+///
+/// # Examples
+///
+/// ```no_run
+/// let mut packet: ndisapi::IntermediateBuffer = ...;
+/// print_packet_info(&mut packet);
+/// ```
+fn print_packet_info(packet: &mut ndisapi::IntermediateBuffer) {
+    // Attempt to create a SlicedPacket from the Ethernet frame.
+    match SlicedPacket::from_ethernet(&packet.buffer.0) {
+        // If there's an error, print it.
+        Err(value) => println!("Err {value:?}"),
+
+        // If successful, proceed with printing packet information.
+        Ok(value) => {
+            // Print Ethernet information if available.
+            if let Some(Ethernet2(value)) = value.link {
+                println!(
+                    " Ethernet {} => {}",
+                    ndisapi::MacAddress::from_slice(&value.source()[..]).unwrap(),
+                    ndisapi::MacAddress::from_slice(&value.destination()[..]).unwrap(),
+                );
+            }
+
+            // Print IP information if available.
+            match value.ip {
+                Some(Ipv4(value, extensions)) => {
+                    println!(
+                        "  Ipv4 {:?} => {:?}",
+                        value.source_addr(),
+                        value.destination_addr()
+                    );
+                    if !extensions.is_empty() {
+                        println!("    {extensions:?}");
+                    }
+                }
+                Some(Ipv6(value, extensions)) => {
+                    println!(
+                        "  Ipv6 {:?} => {:?}",
+                        value.source_addr(),
+                        value.destination_addr()
+                    );
+                    if !extensions.is_empty() {
+                        println!("    {extensions:?}");
+                    }
+                }
+                None => {}
+            }
+
+            // Print transport layer information if available.
+            match value.transport {
+                Some(Icmpv4(value)) => println!(" Icmpv4 {value:?}"),
+                Some(Icmpv6(value)) => println!(" Icmpv6 {value:?}"),
+                Some(Udp(value)) => println!(
+                    "   UDP {:?} -> {:?}",
+                    value.source_port(),
+                    value.destination_port()
+                ),
+                Some(Tcp(value)) => {
+                    println!(
+                        "   TCP {:?} -> {:?}",
+                        value.source_port(),
+                        value.destination_port()
+                    );
+                }
+                Some(Unknown(ip_protocol)) => {
+                    println!("  Unknown Protocol (ip protocol number {ip_protocol:?})")
+                }
+                None => {}
+            }
+        }
+    }
 }

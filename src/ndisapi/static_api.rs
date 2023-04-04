@@ -1,3 +1,12 @@
+//! # Submodule: Static NDISAPI functions
+//!
+//! This module provides utility functions for interacting with the Windows Registry related
+//! to NDIS Filter driver and network interfaces. It defines constants for various Registry keys,
+//! values, and data types that are used to access and modify settings related to network interfaces.
+//! It also contains an //! implementation of Ndisapi that includes functions for setting and retrieving
+//! Registry values related to NDIS filter driver and network interfaces.
+//!
+
 use windows::{
     core::{Result, PCWSTR, PWSTR},
     s, w,
@@ -7,35 +16,65 @@ use windows::{
     },
 };
 
+use super::Ndisapi;
 use std::str;
 
-use super::Ndisapi;
-
+/// The registry key path for the network control class.
 const REGSTR_NETWORK_CONTROL_CLASS: ::windows::core::PCWSTR =
-    w!("SYSTEM\\CurrentControlSet\\Control\\Class\\{4D36E972-E325-11CE-BFC1-08002BE10318}");
-const WINNT_REG_PARAM: ::windows::core::PCWSTR =
-    w!("SYSTEM\\CurrentControlSet\\Services\\ndisrd\\Parameters");
+    w!(r"SYSTEM\CurrentControlSet\Control\Class\{4D36E972-E325-11CE-BFC1-08002BE10318}");
+
+/// The name of the registry value.
 const REGSTR_VAL_NAME: ::windows::core::PCWSTR = w!("Name");
+
+/// The name of the registry value containing the component ID.
 const REGSTR_COMPONENTID: ::windows::core::PCSTR = s!("ComponentId");
+
+/// The name of the registry value containing the linkage information.
 const REGSTR_LINKAGE: ::windows::core::PCWSTR = w!("Linkage");
+
+/// The name of the registry value containing the export information.
 const REGSTR_EXPORT: ::windows::core::PCSTR = s!("Export");
+
+/// The name of the registry value containing the MTU decrement value.
 const REGSTR_MTU_DECREMENT: ::windows::core::PCWSTR = w!("MTUDecrement");
+
+/// The name of the registry value containing the startup mode value.
 const REGSTR_STARTUP_MODE: ::windows::core::PCWSTR = w!("StartupMode");
+
+/// The component ID for the NDIS WAN IP driver.
 const REGSTR_COMPONENTID_NDISWANIP: &str = "ms_ndiswanip";
+
+/// The component ID for the NDIS WAN IPv6 driver.
 const REGSTR_COMPONENTID_NDISWANIPV6: &str = "ms_ndiswanipv6";
+
+/// The component ID for the NDIS WAN BH driver.
 const REGSTR_COMPONENTID_NDISWANBH: &str = "ms_ndiswanbh";
+
+/// The user-friendly name for the NDIS WAN IP interface.
 const USER_NDISWANIP: &str = "WAN Network Interface (IP)";
+
+/// The user-friendly name for the NDIS WAN BH interface.
 const USER_NDISWANBH: &str = "WAN Network Interface (BH)";
+
+/// The user-friendly name for the NDIS WAN IPv6 interface.
 const USER_NDISWANIPV6: &str = "WAN Network Interface (IPv6)";
 
 impl Ndisapi {
-    /// Enumerate all subkeys of HKLM\SYSTEM\CurrentControlSet\Control\Class\{4D36E972-E325-11CE-BFC1-08002BE10318}
-    /// and look for the componentid = ms_ndiswanip, and then grab the linkage subkey and the export string it seems to work for
-    /// at least both windows 7 and windows 10.
-    /// Possible component id values:
-    /// ms_ndiswanip
-    /// ms_ndiswanipv6
-    /// ms_ndiswanbh
+    /// Determines if a given network interface is an NDISWAN interface.
+    ///
+    /// This function enumerates all subkeys of the registry key `HKLM\SYSTEM\CurrentControlSet\Control\Class\{4D36E972-E325-11CE-BFC1-08002BE10318}`,
+    /// and looks for the specified `component_id` (e.g., "ms_ndiswanip", "ms_ndiswanipv6", "ms_ndiswanbh").
+    /// If a match is found, it checks the linkage subkey and export string to determine if the interface is an NDISWAN interface.
+    ///
+    /// # Arguments
+    ///
+    /// * `adapter_name: impl Into<String>`: The name of the network adapter to check.
+    /// * `component_id: &str`: The component ID to look for in the registry (e.g., "ms_ndiswanip", "ms_ndiswanipv6", "ms_ndiswanbh").
+    ///
+    /// # Returns
+    ///
+    /// * `Result<bool>`: If successful, returns `Ok(true)` if the interface is an NDISWAN interface, `Ok(false)` otherwise.
+    ///   If an error occurs, returns an error.
     fn is_ndiswan_interface(adapter_name: impl Into<String>, component_id: &str) -> Result<bool> {
         let adapter_name = adapter_name.into();
         // Handles to registry keys
@@ -179,22 +218,68 @@ impl Ndisapi {
         Ok(found)
     }
 
+    /// Determines if a given network interface is an NDISWANIP interface.
+    ///
+    /// This function checks if the specified network adapter is an NDISWANIP interface by calling `is_ndiswan_interface`
+    /// with the component ID "ms_ndiswanip".
+    ///
+    /// # Arguments
+    ///
+    /// * `adapter_name: impl Into<String>`: The name of the network adapter to check.
+    ///
+    /// # Returns
+    ///
+    /// * `bool`: Returns `true` if the interface is an NDISWANIP interface, `false` otherwise.
     pub fn is_ndiswan_ip(adapter_name: impl Into<String>) -> bool {
         Self::is_ndiswan_interface(adapter_name.into(), REGSTR_COMPONENTID_NDISWANIP)
             .unwrap_or(false)
     }
 
+    /// Determines if a given network interface is an NDISWANIPV6 interface.
+    ///
+    /// This function checks if the specified network adapter is an NDISWANIPV6 interface by calling `is_ndiswan_interface`
+    /// with the component ID "ms_ndiswanipv6".
+    ///
+    /// # Arguments
+    ///
+    /// * `adapter_name: impl Into<String>`: The name of the network adapter to check.
+    ///
+    /// # Returns
+    ///
+    /// * `bool`: Returns `true` if the interface is an NDISWANIPV6 interface, `false` otherwise.
     pub fn is_ndiswan_ipv6(adapter_name: impl Into<String>) -> bool {
         Self::is_ndiswan_interface(adapter_name.into(), REGSTR_COMPONENTID_NDISWANIPV6)
             .unwrap_or(false)
     }
 
+    /// Determines if a given network interface is an NDISWANBH interface.
+    ///
+    /// This function checks if the specified network adapter is an NDISWANBH interface by calling `is_ndiswan_interface`
+    /// with the component ID "ms_ndiswanbh".
+    ///
+    /// # Arguments
+    ///
+    /// * `adapter_name: impl Into<String>`: The name of the network adapter to check.
+    ///
+    /// # Returns
+    ///
+    /// * `bool`: Returns `true` if the interface is an NDISWANBH interface, `false` otherwise.
     pub fn is_ndiswan_bh(adapter_name: impl Into<String>) -> bool {
         Self::is_ndiswan_interface(adapter_name.into(), REGSTR_COMPONENTID_NDISWANBH)
             .unwrap_or(false)
     }
 
-    /// Obtains the user-friendly name of the network interface by system level name received from the network filter driver
+    /// This function checks if the specified network adapter is an NDISWAN IP, IPv6, or BH interface, and if not,
+    /// attempts to find the friendly name from the registry.
+    ///
+    /// # Arguments
+    ///
+    /// * `adapter_name: impl Into<String>`: The system-level name of the network adapter to obtain the user-friendly name for.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<String>`: Returns a `Result` containing the user-friendly name of the network adapter if found, or an error otherwise.
+
     pub fn get_friendly_adapter_name(adapter_name: impl Into<String>) -> Result<String> {
         let mut adapter_name = adapter_name.into();
 
@@ -221,14 +306,13 @@ impl Ndisapi {
         // Convert the string to UTF16 array and get a pointer to it as PCWSTR
         let mut friendly_name_key = friendly_name_key.encode_utf16().collect::<Vec<u16>>();
         friendly_name_key.push(0);
-        let friendly_name_key_pwstr = PCWSTR::from_raw(friendly_name_key.as_ptr());
 
         let mut hkey = HKEY::default();
 
         let mut result = unsafe {
             RegOpenKeyExW(
                 HKEY_LOCAL_MACHINE,
-                friendly_name_key_pwstr,
+                PCWSTR::from_raw(friendly_name_key.as_ptr()),
                 0,
                 KEY_READ,
                 &mut hkey,
@@ -276,11 +360,26 @@ impl Ndisapi {
     /// The value set in the registry is subtracted from the actual MTU (Maximum Transmission Unit) when it is requested
     /// by the MSTCP (Microsoft TCP/IP) from the network. Because this parameter is read during the initialization of the
     /// filter driver, a system reboot is required for the changes to take effect. Requires Administrator permissions.
-    pub fn set_mtu_decrement(mtu_decrement: u32) -> Result<()> {
+    ///
+    /// # Arguments
+    ///
+    /// * `mtu_decrement: u32` - The value to subtract from the actual MTU.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<()>` - Returns a `Result` that is `Ok(())` if the MTU decrement value is set successfully in the registry, or an error otherwise.
+    pub fn set_mtu_decrement(&self, mtu_decrement: u32) -> Result<()> {
         let mut hkey = HKEY::default();
 
-        let mut result =
-            unsafe { RegOpenKeyExW(HKEY_LOCAL_MACHINE, WINNT_REG_PARAM, 0, KEY_WRITE, &mut hkey) };
+        let mut result = unsafe {
+            RegOpenKeyExW(
+                HKEY_LOCAL_MACHINE,
+                self.get_driver_registry_key(),
+                0,
+                KEY_WRITE,
+                &mut hkey,
+            )
+        };
 
         if result.is_ok() {
             result = unsafe {
@@ -301,14 +400,25 @@ impl Ndisapi {
         }
     }
 
-    /// This function retrives the value set by set_mtu_decrement from the registry. Note that if you have not
-    /// rebooted after calling set_mtu_decrement the return value in meaningless. If MTUDecrement value is not
-    /// present in the registry or error occured then None returned
-    pub fn get_mtu_decrement() -> Option<u32> {
+    /// This function retrieves the value set by `set_mtu_decrement` from the registry. Note that if you have not
+    /// rebooted after calling `set_mtu_decrement`, the return value is meaningless. If `MTUDecrement` value is not
+    /// present in the registry or an error occurred, then `None` is returned.
+    ///
+    /// # Returns
+    ///
+    /// * `Option<u32>` - Returns an `Option` containing the MTU decrement value if it is present in the registry and there are no errors, or `None` otherwise.
+    pub fn get_mtu_decrement(&self) -> Option<u32> {
         let mut hkey = HKEY::default();
 
-        let mut result =
-            unsafe { RegOpenKeyExW(HKEY_LOCAL_MACHINE, WINNT_REG_PARAM, 0, KEY_READ, &mut hkey) };
+        let mut result = unsafe {
+            RegOpenKeyExW(
+                HKEY_LOCAL_MACHINE,
+                self.get_driver_registry_key(),
+                0,
+                KEY_READ,
+                &mut hkey,
+            )
+        };
 
         let mut value_type = REG_VALUE_TYPE::default();
         let mtu_decrement = 0u32;
@@ -338,11 +448,26 @@ impl Ndisapi {
     /// It can be helpful in scenarios where you need to delay a network interface from operating until your
     /// application has started. However, it's essential to note that this API call requires a system reboot to take effect.
     /// Requires Administrator permissions to succeed.
-    pub fn set_adapters_startup_mode(startup_mode: u32) -> Result<()> {
+    ///
+    /// # Arguments
+    ///
+    /// * `startup_mode: u32` - The default startup mode to be applied to each adapter.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<()>` - Returns a `Result` indicating whether the operation succeeded or an error occurred.
+    pub fn set_adapters_startup_mode(&self, startup_mode: u32) -> Result<()> {
         let mut hkey = HKEY::default();
 
-        let mut result =
-            unsafe { RegOpenKeyExW(HKEY_LOCAL_MACHINE, WINNT_REG_PARAM, 0, KEY_WRITE, &mut hkey) };
+        let mut result = unsafe {
+            RegOpenKeyExW(
+                HKEY_LOCAL_MACHINE,
+                self.get_driver_registry_key(),
+                0,
+                KEY_WRITE,
+                &mut hkey,
+            )
+        };
 
         if result.is_ok() {
             result = unsafe {
@@ -364,12 +489,24 @@ impl Ndisapi {
     }
 
     /// Returns the current default filter mode value applied to each adapter when it appears in the system.
-    /// Note that if you have not rebooted after calling SetAdaptersStartupMode the return value in meaningless.
-    pub fn get_adapters_startup_mode() -> Option<u32> {
+    /// Note that if you have not rebooted after calling SetAdaptersStartupMode, the return value is meaningless.
+    ///
+    /// # Returns
+    ///
+    /// * `Option<u32>` - Returns the current default startup mode as `Some(u32)` if the value is present in the registry,
+    ///   or `None` if the value is not present or an error occurred.
+    pub fn get_adapters_startup_mode(&self) -> Option<u32> {
         let mut hkey = HKEY::default();
 
-        let mut result =
-            unsafe { RegOpenKeyExW(HKEY_LOCAL_MACHINE, WINNT_REG_PARAM, 0, KEY_READ, &mut hkey) };
+        let mut result = unsafe {
+            RegOpenKeyExW(
+                HKEY_LOCAL_MACHINE,
+                self.get_driver_registry_key(),
+                0,
+                KEY_READ,
+                &mut hkey,
+            )
+        };
 
         let mut value_type = REG_VALUE_TYPE::default();
         let startup_mode = 0u32;
