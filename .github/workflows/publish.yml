@@ -5,8 +5,14 @@ on:
     types: [published]
 
 jobs:
-  publish:
-    runs-on: windows-2022
+  static-analysis:
+    strategy:
+      matrix:
+        rust: [stable, nightly]
+        runs-on:
+          - windows-2019
+          - windows-2022
+    runs-on: ${{ matrix.runs-on }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -17,12 +23,15 @@ jobs:
           cargo check
           cargo clippy --all-targets --all-features -- -D clippy::all
           cargo test
-      - name: Setup toolchain
-        run: |
-          rustup update --no-self-update ${{ matrix.rust }}
-          rustup default ${{ matrix.rust }}
-          rustup component add clippy
-          rustup target add aarch64-pc-windows-msvc i686-pc-windows-msvc x86_64-pc-windows-msvc
+
+  publish:
+    needs: static-analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Update toolchain
+        run: rustup update --no-self-update ${{ matrix.rust }} && rustup default ${{ matrix.rust }} && rustup component add clippy
       - name: Sanity check tag equals crate version
         run: |
           pkg_version=$(awk -F ' = ' '$1 ~ /version/ { gsub(/[\"]/, "", $2); printf("%s",$2); exit; }' Cargo.toml)
