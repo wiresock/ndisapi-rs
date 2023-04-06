@@ -3,6 +3,11 @@ name = "ndisapi"
 version = "0.1.0"
 edition = "2021"
 authors = ["Vadim Smirnov <vadim@ntkernel.com>"]
+description = "NDIS API bindings for Rust"
+license = "Apache-2.0"
+documentation = "https://docs.rs/ndisapi"
+repository = "https://github.com/firezone/ndisapi"
+readme = "README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
