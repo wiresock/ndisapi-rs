@@ -38,8 +38,11 @@ const REGSTR_EXPORT: ::windows::core::PCSTR = s!("Export");
 /// The name of the registry value containing the MTU decrement value.
 const REGSTR_MTU_DECREMENT: ::windows::core::PCWSTR = w!("MTUDecrement");
 
-/// The name of the registry value containing the startup mode value.
+/// The name of the registry value containing the network adapter startup filter mode value.
 const REGSTR_STARTUP_MODE: ::windows::core::PCWSTR = w!("StartupMode");
+
+/// The name of the registry value containing theintermediate buffer pool size multiplier.
+const REGSTR_POOL_SIZE: ::windows::core::PCWSTR = w!("PoolSize");
 
 /// The component ID for the NDIS WAN IP driver.
 const REGSTR_COMPONENTID_NDISWANIP: &str = "ms_ndiswanip";
@@ -527,6 +530,102 @@ impl Ndisapi {
 
         if result.is_ok() {
             Some(startup_mode)
+        } else {
+            None
+        }
+    }
+
+    /// Sets the pool size multiplier for Windows Packet Filter driver in the Windows registry.
+    ///
+    /// This function creates or modifies the PoolSize value in the registry based on the
+    /// given value. The appropriate registry key is selected depending on the
+    /// Windows platform (NT/2000/XP or 9x/ME). The resulting internal packet pool size
+    /// will be equal to 2048 (512 for Windows version before Vista) * PoolSize packets. The maximum
+    /// effective PoolSize is 10.
+    ///
+    /// # Arguments
+    ///
+    /// * `pool_size: u32` - The desired pool size multiplier to be set in the registry.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<()>` - If the pool size multiplier is successfully set, returns `Ok(())`.
+    ///   Otherwise, returns an `Err` with the error code.
+    pub fn set_pool_size(&self, pool_size: u32) -> Result<()> {
+        let mut hkey = HKEY::default();
+
+        let mut result = unsafe {
+            RegOpenKeyExW(
+                HKEY_LOCAL_MACHINE,
+                self.get_driver_registry_key(),
+                0,
+                KEY_WRITE,
+                &mut hkey,
+            )
+        };
+
+        if result.is_ok() {
+            result = unsafe {
+                RegSetValueExW(
+                    hkey,
+                    REGSTR_POOL_SIZE,
+                    0,
+                    REG_DWORD,
+                    Some(pool_size.to_ne_bytes().as_ref()),
+                )
+            };
+        }
+
+        if result.is_ok() {
+            Ok(())
+        } else {
+            Err(result.into())
+        }
+    }
+
+    /// Retrieves the pool size multiplier for the Windows Packet Filter driver from the Windows registry.
+    ///
+    /// This function queries the registry for the PoolSize value and returns it.
+    /// The appropriate registry key is used depending on the Windows platform
+    /// (NT/2000/XP or 9x/ME). The internal packet pool size is determined by
+    /// 2048 * PoolSize packets. The maximum effective PoolSize is 10.
+    ///
+    /// # Returns
+    ///
+    /// * `Option<u32>` - The pool size multiplier retrieved from the registry.
+    ///   If the value is not found or an error occurs, returns `None`.
+    pub fn get_pool_size(&self) -> Option<u32> {
+        let mut hkey = HKEY::default();
+
+        let mut result = unsafe {
+            RegOpenKeyExW(
+                HKEY_LOCAL_MACHINE,
+                self.get_driver_registry_key(),
+                0,
+                KEY_READ,
+                &mut hkey,
+            )
+        };
+
+        let mut value_type = REG_VALUE_TYPE::default();
+        let pool_size = 0u32;
+        let mut data_size = std::mem::size_of::<u32>() as u32;
+
+        if result.is_ok() {
+            result = unsafe {
+                RegQueryValueExW(
+                    hkey,
+                    REGSTR_POOL_SIZE,
+                    None,
+                    Some(&mut value_type),
+                    Some(&pool_size as *const u32 as *mut u8),
+                    Some(&mut data_size),
+                )
+            };
+        }
+
+        if result.is_ok() {
+            Some(pool_size)
         } else {
             None
         }

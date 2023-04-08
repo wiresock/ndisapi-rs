@@ -68,7 +68,7 @@ bitflags! {
     /// FilterFlags represent various flags used for packet filtering.
     ///
     /// These flags are used to configure the behavior of the packet filtering mechanism in different scenarios.
-    #[derive(Default)]
+    #[derive(Default, Clone, Copy, Debug, PartialEq)]
     pub struct FilterFlags: u32 {
         /// MSTCP_FLAG_SENT_TUNNEL: Queue all packets sent from TCP/IP to network interface. Original packet is dropped.
         const MSTCP_FLAG_SENT_TUNNEL = 1;
@@ -95,10 +95,10 @@ bitflags! {
         const MSTCP_FLAG_LOOPBACK_BLOCK = 64;
 
         /// MSTCP_FLAG_SENT_RECEIVE_TUNNEL: Combination of MSTCP_FLAG_SENT_TUNNEL and MSTCP_FLAG_RECV_TUNNEL.
-        const MSTCP_FLAG_SENT_RECEIVE_TUNNEL = Self::MSTCP_FLAG_SENT_TUNNEL.bits | Self::MSTCP_FLAG_RECV_TUNNEL.bits;
+        const MSTCP_FLAG_SENT_RECEIVE_TUNNEL = Self::MSTCP_FLAG_SENT_TUNNEL.bits() | Self::MSTCP_FLAG_RECV_TUNNEL.bits();
 
         /// MSTCP_FLAG_SENT_RECEIVE_LISTEN: Combination of MSTCP_FLAG_SENT_LISTEN and MSTCP_FLAG_RECV_LISTEN.
-        const MSTCP_FLAG_SENT_RECEIVE_LISTEN = Self::MSTCP_FLAG_SENT_LISTEN.bits | Self::MSTCP_FLAG_RECV_LISTEN.bits;
+        const MSTCP_FLAG_SENT_RECEIVE_LISTEN = Self::MSTCP_FLAG_SENT_LISTEN.bits() | Self::MSTCP_FLAG_RECV_LISTEN.bits();
     }
 }
 
@@ -107,7 +107,7 @@ bitflags! {
     ///
     /// These flags are used to specify the direction of packets that the filter should act upon and
     /// to specify the packet direction in IntermediateBuffer.
-    #[derive(Default)]
+    #[derive(Default, Clone, Copy, Debug, PartialEq)]
     pub struct DirectionFlags: u32 {
         /// PACKET_FLAG_ON_SEND: Indicates an outgoing packet. In the context of filters, the filter should act on packets being sent from the system.
         const PACKET_FLAG_ON_SEND = 1;
@@ -116,7 +116,7 @@ bitflags! {
         const PACKET_FLAG_ON_RECEIVE = 2;
 
         /// PACKET_FLAG_ON_SEND_RECEIVE: Filter should act on both sent and received packets.
-        const PACKET_FLAG_ON_SEND_RECEIVE = Self::PACKET_FLAG_ON_SEND.bits | Self::PACKET_FLAG_ON_RECEIVE.bits;
+        const PACKET_FLAG_ON_SEND_RECEIVE = Self::PACKET_FLAG_ON_SEND.bits() | Self::PACKET_FLAG_ON_RECEIVE.bits();
     }
 }
 
@@ -125,7 +125,7 @@ bitflags! {
     ///
     /// These flags are used to specify which fields of an Ethernet 802.3 frame the filter should
     /// consider when determining whether to process the packet.
-    #[derive(Default)]
+    #[derive(Default, Clone, Copy, Debug, PartialEq)]
     pub struct Eth802_3FilterFlags: u32 {
         /// ETH_802_3_SRC_ADDRESS: Filter based on the source MAC address of the Ethernet 802.3 frame.
         const ETH_802_3_SRC_ADDRESS = 1;
@@ -143,7 +143,7 @@ bitflags! {
     ///
     /// These flags are used to specify which fields of an IPv4 packet the filter should
     /// consider when determining whether to process the packet.
-    #[derive(Default)]
+    #[derive(Default, Clone, Copy, Debug, PartialEq)]
     pub struct IpV4FilterFlags: u32 {
         /// IP_V4_FILTER_SRC_ADDRESS: Filter based on the source IP address of the IPv4 packet.
         const IP_V4_FILTER_SRC_ADDRESS = 1;
@@ -161,7 +161,7 @@ bitflags! {
     ///
     /// These flags are used to specify which fields of an IPv6 packet the filter should
     /// consider when determining whether to process the packet.
-    #[derive(Default)]
+    #[derive(Default, Clone, Copy, Debug, PartialEq)]
     pub struct IpV6FilterFlags: u32 {
         /// IP_V6_FILTER_SRC_ADDRESS: Filter based on the source IP address of the IPv6 packet.
         const IP_V6_FILTER_SRC_ADDRESS = 1;
@@ -179,7 +179,7 @@ bitflags! {
     ///
     /// These flags are used to specify which fields of a TCP or UDP packet the filter should
     /// consider when determining whether to process the packet.
-    #[derive(Default)]
+    #[derive(Default, Clone, Copy, Debug, PartialEq)]
     pub struct TcpUdpFilterFlags: u32 {
         /// TCPUDP_SRC_PORT: Filter based on the source port of the TCP or UDP packet.
         const TCPUDP_SRC_PORT = 1;
@@ -197,7 +197,7 @@ bitflags! {
     ///
     /// These flags are used to specify which fields of an ICMP packet the filter should
     /// consider when determining whether to process the packet.
-    #[derive(Default)]
+    #[derive(Default, Clone, Copy, Debug, PartialEq)]
     pub struct IcmpFilterFlags: u32 {
         /// ICMP_TYPE: Filter based on the ICMP type of the ICMP packet.
         const ICMP_TYPE = 1;
@@ -213,7 +213,7 @@ bitflags! {
     /// These flags are used to specify which layers of a packet the filter should consider
     /// when determining whether to process the packet. They are typically used in conjunction
     /// with other filter flags to define the conditions for filtering at specific layers.
-    #[derive(Default)]
+    #[derive(Default, Clone, Copy, Debug, PartialEq)]
     pub struct FilterLayerFlags: u32 {
         /// DATA_LINK_LAYER_VALID: Indicates that the Data Link Layer filter fields are valid and should be considered in the filtering process.
         const DATA_LINK_LAYER_VALID = 1;

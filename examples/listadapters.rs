@@ -1,3 +1,7 @@
+/// This example demonstrates the basic usage of the `Ndisapi` object, `Ndisapi::get_tcpip_bound_adapters_info`,
+/// adapter name conversion functions, and `Ndisapi::get_mtu_decrement` and etc.. It retrieves information about the
+/// network interfaces, including their indexes, which can be passed to the `packthru` and `passthru`
+/// examples. The collected information is dumped to the console screen.
 use std::{
     mem::{self, size_of},
     ptr::write_bytes,
@@ -147,6 +151,18 @@ fn main() -> Result<()> {
     let mtu_decrement = driver.get_mtu_decrement().unwrap_or(0);
 
     println!("\nSystem wide MTU decrement: {mtu_decrement}");
+
+    let startup_mode = driver.get_adapters_startup_mode().unwrap_or(0);
+
+    println!("\nSystem wide network adapter startup filter mode: {startup_mode}");
+
+    let pool_size = driver.get_pool_size().unwrap_or(0);
+
+    println!("\nDriver intermediate buffer pool size multiplier: {pool_size}");
+
+    let effective_pool_size = driver.get_intermediate_buffer_pool_size().unwrap_or(0);
+
+    println!("\nEffective intermediate buffer pool size: {effective_pool_size}");
 
     Ok(())
 }

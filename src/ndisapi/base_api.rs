@@ -440,4 +440,36 @@ impl Ndisapi {
             Ok(())
         }
     }
+
+    /// Retrieves the effective size of the Windows Packet Filter internal intermediate buffer pool.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<u32>` - If the operation is successful, returns `Ok(pool_size)` where `pool_size`
+    ///   is the size of the intermediate buffer pool. Otherwise, returns an `Err` with the error code.
+    ///
+    /// This function retrieves the size of the intermediate buffer pool used by the driver.
+    /// It uses `DeviceIoControl` with the `IOCTL_NDISRD_QUERY_IB_POOL_SIZE` code to perform the operation.
+    pub fn get_intermediate_buffer_pool_size(&self) -> Result<u32> {
+        let mut pool_size: u32 = 0;
+
+        let result = unsafe {
+            DeviceIoControl(
+                self.driver_handle,
+                IOCTL_NDISRD_QUERY_IB_POOL_SIZE,
+                None,
+                0,
+                Some(&mut pool_size as *mut u32 as _),
+                size_of::<u32>() as u32,
+                None,
+                None,
+            )
+        };
+
+        if !result.as_bool() {
+            Err(unsafe { GetLastError() }.into())
+        } else {
+            Ok(pool_size)
+        }
+    }
 }

@@ -1,3 +1,8 @@
+/// This example demonstrates the essential usage of active filtering modes for packet processing. It selects a
+/// network interface and sets it into a filtering mode, where both sent and received packets are queued. The example
+/// registers a Win32 event using the `Ndisapi::set_packet_event` function, and enters a waiting state for incoming packets.
+/// Upon receiving a packet, its content is decoded and displayed on the console screen, providing a real-time view of
+/// the network traffic.
 use clap::Parser;
 use etherparse::{InternetSlice::*, LinkSlice::*, TransportSlice::*, *};
 use windows::{

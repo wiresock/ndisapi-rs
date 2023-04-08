@@ -1,3 +1,11 @@
+/// This example demonstrates the basic usage of the `set_packet_filter_table` API, showcasing different filter scenarios:
+///
+/// 1. Redirect only DNS packets for user mode processing.
+/// 2. Redirect only HTTP (TCP port 80) packets for user mode processing.
+/// 3. Drop all ICMP packets and redirect all other packets to user mode (default behavior).
+/// 4. Block access to http://www.ntkernel.com, while allowing all other packets to pass without user mode processing.
+/// 5. Redirect only ARP/RARP packets to user mode, and pass all other packets without processing.
+/// 6. Redirect only outgoing ICMP ping request packets to user mode. Pass all others.
 use clap::Parser;
 use etherparse::{InternetSlice::*, LinkSlice::*, TransportSlice::*, *};
 use std::sync::{

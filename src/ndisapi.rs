@@ -19,7 +19,7 @@ use windows::{
     Win32::Foundation::CloseHandle,
     Win32::Foundation::{GetLastError, HANDLE},
     Win32::Storage::FileSystem::{
-        CreateFileW, FILE_ACCESS_FLAGS, FILE_FLAG_OVERLAPPED, FILE_SHARE_READ, FILE_SHARE_WRITE,
+        CreateFileW, FILE_FLAG_OVERLAPPED, FILE_SHARE_READ, FILE_SHARE_WRITE,
         OPEN_EXISTING,
     },
 };
@@ -97,7 +97,7 @@ impl Ndisapi {
         if let Ok(driver_handle) = unsafe {
             CreateFileW(
                 PCWSTR::from_raw(filename.as_ptr()),
-                FILE_ACCESS_FLAGS(0u32),
+                0u32,
                 FILE_SHARE_READ | FILE_SHARE_WRITE,
                 None,
                 OPEN_EXISTING,

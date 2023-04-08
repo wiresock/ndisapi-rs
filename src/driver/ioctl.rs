@@ -268,3 +268,11 @@ pub const IOCTL_NDISRD_ADD_SECOND_FAST_IO_SECTION: u32 = ctl_code(
     METHOD_BUFFERED,
     FILE_ANY_ACCESS,
 );
+
+/// IOCTL_NDISRD_QUERY_IB_POOL_SIZE: A constant u32 value representing the IOCTL code to query the effective size of the Windows Packet Filter internal intermediate buffer pool.
+pub const IOCTL_NDISRD_QUERY_IB_POOL_SIZE: u32 = ctl_code(
+    FILE_DEVICE_NDISRD,
+    NDISRD_IOCTL_INDEX + 29,
+    METHOD_BUFFERED,
+    FILE_ANY_ACCESS,
+);
