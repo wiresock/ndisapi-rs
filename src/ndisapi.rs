@@ -19,8 +19,7 @@ use windows::{
     Win32::Foundation::CloseHandle,
     Win32::Foundation::{GetLastError, HANDLE},
     Win32::Storage::FileSystem::{
-        CreateFileW, FILE_FLAG_OVERLAPPED, FILE_SHARE_READ, FILE_SHARE_WRITE,
-        OPEN_EXISTING,
+        CreateFileW, FILE_FLAG_OVERLAPPED, FILE_SHARE_READ, FILE_SHARE_WRITE, OPEN_EXISTING,
     },
 };
 
