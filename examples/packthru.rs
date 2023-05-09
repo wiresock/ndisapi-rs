@@ -9,7 +9,7 @@ use etherparse::{InternetSlice::*, LinkSlice::*, TransportSlice::*, *};
 use windows::{
     core::Result,
     Win32::Foundation::HANDLE,
-    Win32::System::Threading::{CreateEventW, WaitForSingleObject},
+    Win32::{System::Threading::{CreateEventW, WaitForSingleObject, ResetEvent}, Foundation::CloseHandle},
 };
 
 #[derive(Parser)]
@@ -157,6 +157,20 @@ fn main() -> Result<()> {
                 break;
             }
         }
+
+        unsafe {
+            ResetEvent(event); // Reset the event to continue waiting for packets to arrive.
+        }
+    }
+
+    // Put the network interface into default mode.
+    driver.set_adapter_mode(
+        adapters[interface_index].get_handle(),
+        ndisapi::FilterFlags::default(),
+    )?;
+
+    unsafe {
+        CloseHandle(event); // Close the event handle.
     }
 
     Ok(())
