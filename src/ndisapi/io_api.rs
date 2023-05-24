@@ -97,21 +97,21 @@ impl Ndisapi {
     ///
     /// # Arguments
     ///
-    /// * `packet: &mut EthRequest`: A mutable reference to the `EthRequest` structure that will be filled with
-    ///   the retrieved packet data.
+    /// * `packet: &EthRequest`: This is a reference to the EthRequest structure. It encompasses an
+    /// intermediate buffer pointer which is designed to be populated with the retrieved packet data.
     ///
     /// # Returns
     ///
     /// * `Result<()>`: If successful, returns `Ok(())`. Otherwise, returns an error.
-    pub unsafe fn read_packet(&self, packet: &mut EthRequest) -> Result<()> {
+    pub unsafe fn read_packet(&self, packet: &EthRequest) -> Result<()> {
         let result = unsafe {
             DeviceIoControl(
                 self.driver_handle,
                 IOCTL_NDISRD_READ_PACKET,
                 Some(packet as *const EthRequest as *const std::ffi::c_void),
                 size_of::<EthRequest>() as u32,
-                Some(packet as *mut EthRequest as *mut std::ffi::c_void),
-                size_of::<EthRequest>() as u32,
+                None,
+                0u32,
                 None,
                 None,
             )

@@ -9,7 +9,10 @@ use etherparse::{InternetSlice::*, LinkSlice::*, TransportSlice::*, *};
 use windows::{
     core::Result,
     Win32::Foundation::HANDLE,
-    Win32::{System::Threading::{CreateEventW, WaitForSingleObject, ResetEvent}, Foundation::CloseHandle},
+    Win32::{
+        Foundation::CloseHandle,
+        System::Threading::{CreateEventW, ResetEvent, WaitForSingleObject},
+    },
 };
 
 #[derive(Parser)]

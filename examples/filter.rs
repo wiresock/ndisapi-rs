@@ -16,7 +16,10 @@ use windows::{
     core::Result,
     Win32::Foundation::HANDLE,
     Win32::Networking::WinSock::{IN_ADDR, IN_ADDR_0, IN_ADDR_0_0},
-    Win32::{System::Threading::{CreateEventW, SetEvent, WaitForSingleObject, ResetEvent}, Foundation::CloseHandle},
+    Win32::{
+        Foundation::CloseHandle,
+        System::Threading::{CreateEventW, ResetEvent, SetEvent, WaitForSingleObject},
+    },
 };
 
 #[derive(Parser)]
@@ -667,7 +670,7 @@ fn main() -> Result<()> {
     let mut ib = ndisapi::IntermediateBuffer::default();
 
     // Initialize EthPacket to pass to driver API
-    let mut packet = ndisapi::EthRequest {
+    let packet = ndisapi::EthRequest {
         adapter_handle: adapters[interface_index].get_handle(),
         packet: ndisapi::EthPacket {
             buffer: &mut ib as *mut ndisapi::IntermediateBuffer,
@@ -678,7 +681,7 @@ fn main() -> Result<()> {
         unsafe {
             WaitForSingleObject(event, u32::MAX);
         }
-        while unsafe { driver.read_packet(&mut packet) }.ok().is_some() {
+        while unsafe { driver.read_packet(&packet) }.ok().is_some() {
             // Print packet information
             if ib.get_device_flags() == ndisapi::DirectionFlags::PACKET_FLAG_ON_SEND {
                 println!("\nMSTCP --> Interface ({} bytes)\n", ib.get_length());

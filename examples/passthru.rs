@@ -77,8 +77,8 @@ fn main() -> Result<()> {
     // Allocate single IntermediateBuffer on the stack.
     let mut ib = ndisapi::IntermediateBuffer::default();
 
-    // Initialize EthPacket to pass to the driver API.
-    let mut packet = ndisapi::EthRequest {
+    // Initialize EthPacket to pass to driver API
+    let packet = ndisapi::EthRequest {
         adapter_handle: adapters[interface_index].get_handle(),
         packet: ndisapi::EthPacket {
             buffer: &mut ib as *mut ndisapi::IntermediateBuffer,
@@ -90,8 +90,8 @@ fn main() -> Result<()> {
         unsafe {
             WaitForSingleObject(event, u32::MAX); // Wait for the event to finish before continuing.
         }
-        while unsafe { driver.read_packet(&mut packet) }.ok().is_some() {
-            // Check if the packet is being sent or received and print message.
+        while unsafe { driver.read_packet(&packet) }.ok().is_some() {
+            // Print packet information
             if ib.get_device_flags() == ndisapi::DirectionFlags::PACKET_FLAG_ON_SEND {
                 println!(
                     "\nMSTCP --> Interface ({} bytes) remaining packets {}\n",

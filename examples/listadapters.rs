@@ -26,7 +26,7 @@ fn main() -> Result<()> {
     for (index, adapter) in adapters.iter().enumerate() {
         // Display the information about each network interface provided by the get_tcpip_bound_adapters_info
         let network_interface_name = Ndisapi::get_friendly_adapter_name(adapter.get_name())
-            .expect("Unkown network interface");
+            .expect("Unknown network interface");
         println!(
             "{}. {}\n\t{}",
             index + 1,

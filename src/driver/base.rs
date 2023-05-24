@@ -191,6 +191,23 @@ pub struct EthPacket {
 }
 
 impl EthPacket {
+    /// Create a new `EthPacket` instance with the specified IntermediateBuffer reference.
+    ///
+    /// # Arguments
+    ///
+    /// * `buffer` - A mutable reference to an `IntermediateBuffer` representing the buffer for this Ethernet packet.
+    ///
+    /// # Safety
+    ///
+    /// This function is unsafe because it creates a raw pointer from the provided mutable reference.
+    /// The caller must ensure that the `IntermediateBuffer` outlives the `EthPacket` object.
+    /// Failing to uphold this guarantee may lead to undefined behavior.
+    pub unsafe fn new(buffer: &mut IntermediateBuffer) -> Self {
+        Self {
+            buffer: buffer as *mut _,
+        }
+    }
+
     /// Returns a mutable reference to the `IntermediateBuffer` pointed to by the `EthPacket`.
     ///
     /// # Safety
@@ -291,6 +308,14 @@ impl<const N: usize> EthMRequest<N> {
         } else {
             Err(ERROR_INVALID_PARAMETER.into())
         }
+    }
+
+    /// Pushes a slice of `EthPacket` to the `packets` array if there's available space, returning an error if the array becomes full.
+    pub fn push_slice(&mut self, packets: &[EthPacket]) -> Result<()> {
+        for packet in packets {
+            self.push(*packet)?;
+        }
+        Ok(())
     }
 }
 

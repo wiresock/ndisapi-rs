@@ -47,6 +47,7 @@ pub use crate::driver::*;
 /// For example, you can use the `Ndisapi::read_packets()` method to read packets from the network adapter, or the `Ndisapi::send_packets_to_adapter()`
 /// method to write packets to the network adapter. You can also use the `Ndisapi::set_packet_filter_table()` method to set a filter that specifies which
 /// packets should be captured or dropped.
+#[derive(Debug, Clone)]
 pub struct Ndisapi {
     // Represents a handle to the NDIS filter driver.
     driver_handle: HANDLE,
