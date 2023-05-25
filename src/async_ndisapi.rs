@@ -33,7 +33,7 @@ pub struct NdisapiAdapter {
     driver: Arc<ndisapi::Ndisapi>,
     /// The handle of the network adapter.
     adapter_handle: HANDLE,
-    /// A future that resolves when a Win32 event is signaled.
+    /// A stream that resolves when a Win32 event is signaled.
     notif: Win32EventStream,
 }
 
@@ -43,7 +43,7 @@ impl NdisapiAdapter {
     /// This function takes a network driver and the handle of the network adapter as arguments.
     /// It then creates a Win32 event and sets it for packet capture for the specified adapter.
     /// Finally, it creates a new `NdisapiAdapter` with the driver, adapter handle, and a
-    /// `Win32EventFuture` created with the event handle.
+    /// `Win32EventStream` created with the event handle.
     ///
     /// # Arguments
     ///
@@ -60,7 +60,7 @@ impl NdisapiAdapter {
     /// # Errors
     ///
     /// Returns an error if the Win32 event creation fails, or if setting the packet capture event for
-    /// the adapter fails, or if creating the `Win32EventFuture` fails.
+    /// the adapter fails, or if creating the `Win32EventStream` fails.
     ///
     /// # Returns
     ///
@@ -81,7 +81,7 @@ impl NdisapiAdapter {
         Ok(Self {
             adapter_handle,
             driver,
-            notif: Win32EventStream::new(event_handle)?, // Creating a new Win32EventFuture with the event handle.
+            notif: Win32EventStream::new(event_handle)?, // Creating a new Win32EventStream with the event handle.
         })
     }
 
@@ -110,7 +110,7 @@ impl NdisapiAdapter {
     ///
     /// This function initializes an `EthRequest` with the provided `EthPacket` and the handle to the adapter.
     /// Then it attempts to read a packet from the network adapter. If the read operation fails,
-    /// the function awaits for a packet event before attempting the read operation again.
+    /// the function awaits the next event from the `Win32EventStream` before attempting the read operation again.
     ///
     /// # Arguments
     ///
@@ -122,15 +122,10 @@ impl NdisapiAdapter {
     /// and the call to `GetLastError()`. Ensure the passed `EthPacket` is properly initialized
     /// and safe to use in this context.
     ///
-    /// The function also temporarily pins the `Win32EventFuture` instance to the stack with `Pin::new(&mut self.notif).await`.
-    /// While this is generally considered safe because `Win32EventFuture` and its internals do not move after being pinned,
-    /// and because the poll function does not invalidate or move these internals after pinning, any future changes to `Win32EventFuture` or its poll
-    /// implementation could potentially make this unsafe. Therefore, be sure to review these aspects if you modify `Win32EventFuture` or this function in the future.
-    ///
     /// # Errors
     ///
     /// Returns an error if the driver fails to read a packet from the network adapter, or if the
-    /// await operation on the packet event fails. The specific error returned in the first case is the
+    /// await operation on the event stream fails. The specific error returned in the first case is the
     /// last error occurred, obtained via a call to `GetLastError()`.
     ///
     /// # Returns

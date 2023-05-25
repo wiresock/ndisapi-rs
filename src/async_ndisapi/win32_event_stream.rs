@@ -1,18 +1,18 @@
-//! # Submodule: Win32EventFuture
+//! # Submodule: Win32EventStream
 //!
-//! The submodule contains two main structures: `Win32EventFuture` and `Win32EventNotification`.
+//! The submodule contains two main structures: `Win32EventStream` and `Win32EventNotification`.
 //! These types are used to interface with the Win32 API for event-driven asynchronous programming.
 //!
-//! `Win32EventFuture` represents a future that resolves when a specific Win32 event is signaled.
+//! `Win32EventStream` represents a stream of events coming from a specific Win32 event.
 //! It encapsulates a `Win32EventNotification` object (the Win32 event notification object),
-//! an `AtomicWaker` (used to wake up the future when it's ready to make progress),
+//! an `AtomicWaker` (used to wake up the stream when new events are ready to be processed),
 //! and an `AtomicBool` (indicating whether the event is ready or not).
 //!
-//! An instance of `Win32EventFuture` can be created with a given Win32 event handle,
-//! and can be polled to check if the packet event is ready.
+//! An instance of `Win32EventStream` can be created with a given Win32 event handle,
+//! and can be polled to check if new events are ready.
 //!
-//! The `Win32EventFuture` struct implements the `Future` trait, making it possible to use
-//! it with async/await syntax and within other futures or async functions.
+//! The `Win32EventStream` struct implements the `Stream` trait, making it possible to use
+//! it with async/await syntax and within other futures, streams or async functions.
 //!
 //! `Win32EventNotification` encapsulates a Win32 event and provides a mechanism to register
 //! a callback function that is called when the event is signaled. It maintains the Win32 event handle,
@@ -44,7 +44,7 @@ use windows::{
     },
 };
 
-/// A future that resolves when a Win32 event is signaled.
+/// A stream that resolves when a Win32 event is signaled.
 pub struct Win32EventStream {
     #[allow(dead_code)]
     /// The Win32 event notification object.
@@ -56,7 +56,7 @@ pub struct Win32EventStream {
 }
 
 impl Win32EventStream {
-    /// Create a new `Win32EventFuture` instance with the specified event handle.
+    /// Create a new `Win32EventStream` instance with the specified event handle.
     pub fn new(event_handle: HANDLE) -> Result<Self> {
         let waker = Arc::new(AtomicWaker::new());
         let ready = Arc::new(AtomicBool::new(false));
