@@ -17,11 +17,11 @@ mod net;
 pub use crate::ndisapi::{
     DirectionFlags, Eth802_3FilterFlags, EthMRequest, EthPacket, EthRequest, FastIoSection,
     FastIoSectionHeader, FilterFlags, FilterLayerFlags, IcmpFilterFlags, IntermediateBuffer,
-    IpV4FilterFlags, IpV6FilterFlags, Ndisapi, PacketOidData, RasLinks, StaticFilterTable,
-    TcpUdpFilterFlags, UnsortedReadSendRequest, ETHER_ADDR_LENGTH, ETH_802_3, FILTER_PACKET_DROP,
-    FILTER_PACKET_DROP_RDR, FILTER_PACKET_PASS, FILTER_PACKET_PASS_RDR, FILTER_PACKET_REDIRECT,
-    ICMP, IPV4, IPV6, IP_RANGE_V4_TYPE, IP_RANGE_V6_TYPE, IP_SUBNET_V4_TYPE, IP_SUBNET_V6_TYPE,
-    TCPUDP,
+    IpV4FilterFlags, IpV6FilterFlags, Ndisapi, NetworkAdapterInfo, PacketOidData, RasLinks,
+    StaticFilterTable, TcpUdpFilterFlags, UnsortedReadSendRequest, Version, ETHER_ADDR_LENGTH,
+    ETH_802_3, FILTER_PACKET_DROP, FILTER_PACKET_DROP_RDR, FILTER_PACKET_PASS,
+    FILTER_PACKET_PASS_RDR, FILTER_PACKET_REDIRECT, ICMP, IPV4, IPV6, IP_RANGE_V4_TYPE,
+    IP_RANGE_V6_TYPE, IP_SUBNET_V4_TYPE, IP_SUBNET_V6_TYPE, TCPUDP,
 };
 
 pub use net::MacAddress;
