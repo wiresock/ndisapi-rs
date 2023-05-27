@@ -1,17 +1,17 @@
 use clap::Parser;
 use etherparse::{InternetSlice::*, LinkSlice::*, TransportSlice::*, *};
-use ndisapi::AsyncAsyncNdisapiAdapter;
+use ndisapi_rs::{AsyncNdisapiAdapter, Ndisapi, MacAddress, FilterFlags, IntermediateBuffer,DirectionFlags, };
 use std::sync::Arc;
 use tokio::sync::oneshot;
 use windows::core::Result;
 
 /// This async function reads from the given AsyncNdisapiAdapter and handles the packets accordingly.
-async fn async_loop(adapter: &mut AsyncAsyncNdisapiAdapter) -> Result<()> {
+async fn async_loop(adapter: &mut AsyncNdisapiAdapter) -> Result<()> {
     // Set the adapter mode to MSTCP_FLAG_SENT_RECEIVE_TUNNEL.
-    adapter.set_adapter_mode(ndisapi::FilterFlags::MSTCP_FLAG_SENT_RECEIVE_TUNNEL)?;
+    adapter.set_adapter_mode(FilterFlags::MSTCP_FLAG_SENT_RECEIVE_TUNNEL)?;
 
     // Allocate single IntermediateBuffer on the stack.
-    let mut packet = ndisapi::IntermediateBuffer::default();
+    let mut packet = IntermediateBuffer::default();
 
     loop {
         // Read a packet from the adapter.
@@ -21,7 +21,7 @@ async fn async_loop(adapter: &mut AsyncAsyncNdisapiAdapter) -> Result<()> {
         }
 
         // Print packet information.
-        if packet.get_device_flags() == ndisapi::DirectionFlags::PACKET_FLAG_ON_SEND {
+        if packet.get_device_flags() == DirectionFlags::PACKET_FLAG_ON_SEND {
             println!("\nMSTCP --> Interface ({} bytes)\n", packet.get_length(),);
         } else {
             println!("\nInterface --> MSTCP ({} bytes)\n", packet.get_length(),);
@@ -31,7 +31,7 @@ async fn async_loop(adapter: &mut AsyncAsyncNdisapiAdapter) -> Result<()> {
         print_packet_info(&mut packet);
 
         // Re-inject the packet back into the network stack.
-        if packet.get_device_flags() == ndisapi::DirectionFlags::PACKET_FLAG_ON_SEND {
+        if packet.get_device_flags() == DirectionFlags::PACKET_FLAG_ON_SEND {
             match adapter.send_packet_to_adapter(&mut packet) {
                 Ok(_) => {}
                 Err(err) => println!("Error sending packet to adapter. Error code = {err}"),
@@ -46,7 +46,7 @@ async fn async_loop(adapter: &mut AsyncAsyncNdisapiAdapter) -> Result<()> {
 }
 
 /// This async function runs the main logic of the program.
-async fn main_async(adapter: &mut AsyncAsyncNdisapiAdapter) {
+async fn main_async(adapter: &mut AsyncNdisapiAdapter) {
     // Prompts the user to press ENTER to exit.
     println!("Press ENTER to exit");
 
@@ -102,7 +102,7 @@ async fn main() -> Result<()> {
 
     // Create a new Ndisapi driver instance.
     let driver = Arc::new(
-        ndisapi::Ndisapi::new("NDISRD")
+        Ndisapi::new("NDISRD")
             .expect("WinpkFilter driver is not installed or failed to load!"),
     );
 
@@ -125,7 +125,7 @@ async fn main() -> Result<()> {
 
     // Create a new instance of AsyncNdisapiAdapter with the selected interface.
     let mut adapter =
-        AsyncAsyncNdisapiAdapter::new(Arc::clone(&driver), adapters[interface_index].get_handle())
+        AsyncNdisapiAdapter::new(Arc::clone(&driver), adapters[interface_index].get_handle())
             .unwrap();
 
     // Execute the main_async function using the previously defined adapter.
@@ -140,15 +140,15 @@ async fn main() -> Result<()> {
 ///
 /// # Arguments
 ///
-/// * `packet` - A mutable reference to an `ndisapi::IntermediateBuffer` containing the network packet.
+/// * `packet` - A mutable reference to an `IntermediateBuffer` containing the network packet.
 ///
 /// # Examples
 ///
 /// ```no_run
-/// let mut packet: ndisapi::IntermediateBuffer = ...;
+/// let mut packet: IntermediateBuffer = ...;
 /// print_packet_info(&mut packet);
 /// ```
-fn print_packet_info(packet: &mut ndisapi::IntermediateBuffer) {
+fn print_packet_info(packet: &mut IntermediateBuffer) {
     // Attempt to create a SlicedPacket from the Ethernet frame.
     match SlicedPacket::from_ethernet(&packet.buffer.0) {
         // If there's an error, print it.
@@ -160,8 +160,8 @@ fn print_packet_info(packet: &mut ndisapi::IntermediateBuffer) {
             if let Some(Ethernet2(value)) = value.link {
                 println!(
                     " Ethernet {} => {}",
-                    ndisapi::MacAddress::from_slice(&value.source()[..]).unwrap(),
-                    ndisapi::MacAddress::from_slice(&value.destination()[..]).unwrap(),
+                    MacAddress::from_slice(&value.source()[..]).unwrap(),
+                    MacAddress::from_slice(&value.destination()[..]).unwrap(),
                 );
             }
 

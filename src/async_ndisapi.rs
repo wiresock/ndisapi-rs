@@ -31,7 +31,7 @@ use self::win32_event_stream::Win32EventStream;
 mod win32_event_stream;
 
 /// The struct AsyncNdisapiAdapter represents a network adapter with its associated driver and relevant handles.
-pub struct AsyncAsyncNdisapiAdapter {
+pub struct AsyncNdisapiAdapter {
     /// The network driver for the adapter.
     driver: Arc<ndisapi::Ndisapi>,
     /// The handle of the network adapter.
@@ -40,7 +40,7 @@ pub struct AsyncAsyncNdisapiAdapter {
     notif: Win32EventStream,
 }
 
-impl AsyncAsyncNdisapiAdapter {
+impl AsyncNdisapiAdapter {
     /// Constructs a new `AsyncNdisapiAdapter`.
     ///
     /// This function takes a network driver and the handle of the network adapter as arguments.
@@ -395,7 +395,7 @@ impl AsyncAsyncNdisapiAdapter {
 }
 
 // Implementing the Drop trait for the AsyncNdisapiAdapter struct.
-impl Drop for AsyncAsyncNdisapiAdapter {
+impl Drop for AsyncNdisapiAdapter {
     /// The drop method will be called automatically when the AsyncNdisapiAdapter object goes out of scope.
     fn drop(&mut self) {
         // Setting the operating mode for the specified adapter to default.

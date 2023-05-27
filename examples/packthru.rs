@@ -1,11 +1,12 @@
 /// This example demonstrates the fundamental usage of active filtering modes in packet processing. By selecting a
 /// network interface and configuring it to operate in a filtering mode, both sent and received packets are queued.
-/// The example registers a Win32 event through the `Ndisapi::set_packet_event` function and enters a waiting state
+/// The example registers a Win32 event through the `set_packet_event` function and enters a waiting state
 /// for incoming packets. As packets are received, their content is decoded and printed on the console screen, offering
 /// a real-time visualization of network traffic. This example resembles the `passthru` utility but employs bulk
 /// packet sending and receiving to optimize performance.
 use clap::Parser;
 use etherparse::{InternetSlice::*, LinkSlice::*, TransportSlice::*, *};
+use ndisapi_rs::{Ndisapi, FilterFlags, IntermediateBuffer, EthMRequest, DirectionFlags, MacAddress};
 use windows::{
     core::Result,
     Win32::Foundation::HANDLE,
@@ -38,7 +39,7 @@ fn main() -> Result<()> {
     interface_index -= 1;
 
     // Initialize the NDISAPI driver.
-    let driver = ndisapi::Ndisapi::new("NDISRD")
+    let driver = Ndisapi::new("NDISRD")
         .expect("WinpkFilter driver is not installed or failed to load!");
 
     // Print the detected Windows Packet Filter version.
@@ -71,18 +72,18 @@ fn main() -> Result<()> {
     // Put the network interface into tunnel mode.
     driver.set_adapter_mode(
         adapters[interface_index].get_handle(),
-        ndisapi::FilterFlags::MSTCP_FLAG_SENT_RECEIVE_TUNNEL,
+        FilterFlags::MSTCP_FLAG_SENT_RECEIVE_TUNNEL,
     )?;
 
     // Initialize a container to store IntermediateBuffers allocated on the heap.
-    let mut ibs: Vec<ndisapi::IntermediateBuffer> = vec![Default::default(); PACKET_NUMBER];
+    let mut ibs: Vec<IntermediateBuffer> = vec![Default::default(); PACKET_NUMBER];
 
     // Initialize containers to read/write IntermediateBuffers from/to the driver.
-    let mut to_read = ndisapi::EthMRequest::new(adapters[interface_index].get_handle());
-    let mut to_mstcp: ndisapi::EthMRequest<PACKET_NUMBER> =
-        ndisapi::EthMRequest::new(adapters[interface_index].get_handle());
-    let mut to_adapter: ndisapi::EthMRequest<PACKET_NUMBER> =
-        ndisapi::EthMRequest::new(adapters[interface_index].get_handle());
+    let mut to_read = EthMRequest::new(adapters[interface_index].get_handle());
+    let mut to_mstcp: EthMRequest<PACKET_NUMBER> =
+        EthMRequest::new(adapters[interface_index].get_handle());
+    let mut to_adapter: EthMRequest<PACKET_NUMBER> =
+        EthMRequest::new(adapters[interface_index].get_handle());
 
     // Initialize the read EthMRequest object.
     for ib in &mut ibs {
@@ -113,7 +114,7 @@ fn main() -> Result<()> {
                 let direction_flags = packet.get_device_flags();
 
                 // Print packet direction and remaining packets.
-                if direction_flags == ndisapi::DirectionFlags::PACKET_FLAG_ON_SEND {
+                if direction_flags == DirectionFlags::PACKET_FLAG_ON_SEND {
                     println!(
                         "\nMSTCP --> Interface ({} bytes) remaining packets {}\n",
                         packet.get_length(),
@@ -130,7 +131,7 @@ fn main() -> Result<()> {
                 // Print packet information
                 print_packet_info(packet);
 
-                if direction_flags == ndisapi::DirectionFlags::PACKET_FLAG_ON_SEND {
+                if direction_flags == DirectionFlags::PACKET_FLAG_ON_SEND {
                     to_adapter.push(packet)?;
                 } else {
                     to_mstcp.push(packet)?;
@@ -182,7 +183,7 @@ fn main() -> Result<()> {
     // Put the network interface into default mode.
     driver.set_adapter_mode(
         adapters[interface_index].get_handle(),
-        ndisapi::FilterFlags::default(),
+        FilterFlags::default(),
     )?;
 
     unsafe {
@@ -199,15 +200,15 @@ fn main() -> Result<()> {
 ///
 /// # Arguments
 ///
-/// * `packet` - A mutable reference to an `ndisapi::IntermediateBuffer` containing the network packet.
+/// * `packet` - A mutable reference to an `IntermediateBuffer` containing the network packet.
 ///
 /// # Examples
 ///
 /// ```no_run
-/// let mut packet: ndisapi::IntermediateBuffer = ...;
+/// let mut packet: IntermediateBuffer = ...;
 /// print_packet_info(&mut packet);
 /// ```
-fn print_packet_info(packet: &mut ndisapi::IntermediateBuffer) {
+fn print_packet_info(packet: &mut IntermediateBuffer) {
     // Attempt to create a SlicedPacket from the Ethernet frame.
     match SlicedPacket::from_ethernet(&packet.buffer.0) {
         // If there's an error, print it.
@@ -219,8 +220,8 @@ fn print_packet_info(packet: &mut ndisapi::IntermediateBuffer) {
             if let Some(Ethernet2(value)) = value.link {
                 println!(
                     " Ethernet {} => {}",
-                    ndisapi::MacAddress::from_slice(&value.source()[..]).unwrap(),
-                    ndisapi::MacAddress::from_slice(&value.destination()[..]).unwrap(),
+                    MacAddress::from_slice(&value.source()[..]).unwrap(),
+                    MacAddress::from_slice(&value.destination()[..]).unwrap(),
                 );
             }
 

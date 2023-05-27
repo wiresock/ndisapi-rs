@@ -7,13 +7,13 @@ use std::{
     ptr::write_bytes,
 };
 
-use ndisapi::{MacAddress, Ndisapi};
+use ndisapi_rs::{MacAddress, Ndisapi, PacketOidData, RasLinks};
 use windows::core::Result;
 
 const OID_802_3_CURRENT_ADDRESS: u32 = 0x01010102;
 
 fn main() -> Result<()> {
-    let driver = ndisapi::Ndisapi::new("NDISRD")
+    let driver = Ndisapi::new("NDISRD")
         .expect("WinpkFilter driver is not installed or failed to load!");
 
     println!(
@@ -56,10 +56,10 @@ fn main() -> Result<()> {
         }
 
         // Query MAC address of the network adapter using ndis_get_request directly
-        let mut current_address_request = ndisapi::PacketOidData::new(
+        let mut current_address_request = PacketOidData::new(
             adapter.get_handle(),
             OID_802_3_CURRENT_ADDRESS,
-            ndisapi::MacAddress::default(),
+            MacAddress::default(),
         );
         if let Err(err) = driver.ndis_get_request::<_>(&mut current_address_request) {
             println!(
@@ -76,7 +76,7 @@ fn main() -> Result<()> {
         if Ndisapi::is_ndiswan_ip(adapter.get_name())
             || Ndisapi::is_ndiswan_ipv6(adapter.get_name())
         {
-            let mut ras_links_vec: Vec<ndisapi::RasLinks> = Vec::with_capacity(1);
+            let mut ras_links_vec: Vec<RasLinks> = Vec::with_capacity(1);
             // SAFETY: ndisapi::RasLinks is too large to allocate memory on the stack and results in a stackoverflow error
             // Here is the workaround get a raw pointer to the vector with capacity to hold one ndisapi::RasLinks structure,
             // zero initialize the vector allocated memory and then set a vector length to one
@@ -84,7 +84,7 @@ fn main() -> Result<()> {
                 write_bytes::<u8>(
                     mem::transmute(ras_links_vec.as_mut_ptr()),
                     0,
-                    size_of::<ndisapi::RasLinks>(),
+                    size_of::<RasLinks>(),
                 );
                 ras_links_vec.set_len(1)
             };

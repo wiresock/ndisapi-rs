@@ -5,6 +5,7 @@
 /// the network traffic.
 use clap::Parser;
 use etherparse::{InternetSlice::*, LinkSlice::*, TransportSlice::*, *};
+use ndisapi_rs::{Ndisapi, FilterFlags, IntermediateBuffer, EthRequest, DirectionFlags, MacAddress};
 use windows::{
     core::Result,
     Win32::Foundation::{CloseHandle, HANDLE},
@@ -32,7 +33,7 @@ fn main() -> Result<()> {
     interface_index -= 1;
 
     // Create new NDISAPI object using the WinpkFilter driver
-    let driver = ndisapi::Ndisapi::new("NDISRD")
+    let driver = Ndisapi::new("NDISRD")
         .expect("WinpkFilter driver is not installed or failed to load!");
 
     // Print the version of Windows Packet Filter detected by the driver API
@@ -68,14 +69,14 @@ fn main() -> Result<()> {
     // Put the network interface into tunnel mode by setting it's filter flags.
     driver.set_adapter_mode(
         adapters[interface_index].get_handle(),
-        ndisapi::FilterFlags::MSTCP_FLAG_SENT_RECEIVE_TUNNEL,
+        FilterFlags::MSTCP_FLAG_SENT_RECEIVE_TUNNEL,
     )?;
 
     // Allocate single IntermediateBuffer on the stack
-    let mut packet = ndisapi::IntermediateBuffer::default();
+    let mut packet = IntermediateBuffer::default();
 
     // Initialize EthPacket to pass to driver API
-    let mut request = ndisapi::EthRequest::new(adapters[interface_index].get_handle());
+    let mut request = EthRequest::new(adapters[interface_index].get_handle());
     request.set_packet(&mut packet);
 
     // Loop through all the packets from the network until we are done.
@@ -90,7 +91,7 @@ fn main() -> Result<()> {
             let direction_flags = ib.get_device_flags();
 
             // Print packet information
-            if direction_flags == ndisapi::DirectionFlags::PACKET_FLAG_ON_SEND {
+            if direction_flags == DirectionFlags::PACKET_FLAG_ON_SEND {
                 println!(
                     "\nMSTCP --> Interface ({} bytes) remaining packets {}\n",
                     ib.get_length(),
@@ -113,7 +114,7 @@ fn main() -> Result<()> {
             request.set_packet(ib);
 
             // Re-inject the packet back into the network stack
-            if direction_flags == ndisapi::DirectionFlags::PACKET_FLAG_ON_SEND {
+            if direction_flags == DirectionFlags::PACKET_FLAG_ON_SEND {
                 match driver.send_packet_to_adapter(&request) {
                     Ok(_) => {}
                     Err(err) => println!("Error sending packet to adapter. Error code = {err}"),
@@ -140,7 +141,7 @@ fn main() -> Result<()> {
     // Put the network interface into default mode.
     driver.set_adapter_mode(
         adapters[interface_index].get_handle(),
-        ndisapi::FilterFlags::default(),
+        FilterFlags::default(),
     )?;
 
     unsafe {
@@ -158,15 +159,15 @@ fn main() -> Result<()> {
 ///
 /// # Arguments
 ///
-/// * `packet` - A mutable reference to an `ndisapi::IntermediateBuffer` containing the network packet.
+/// * `packet` - A mutable reference to an `IntermediateBuffer` containing the network packet.
 ///
 /// # Examples
 ///
 /// ```no_run
-/// let mut packet: ndisapi::IntermediateBuffer = ...;
+/// let mut packet: IntermediateBuffer = ...;
 /// print_packet_info(&mut packet);
 /// ```
-fn print_packet_info(packet: &mut ndisapi::IntermediateBuffer) {
+fn print_packet_info(packet: &mut IntermediateBuffer) {
     // Attempt to create a SlicedPacket from the Ethernet frame.
     match SlicedPacket::from_ethernet(&packet.buffer.0) {
         // If there's an error, print it.
@@ -178,8 +179,8 @@ fn print_packet_info(packet: &mut ndisapi::IntermediateBuffer) {
             if let Some(Ethernet2(value)) = value.link {
                 println!(
                     " Ethernet {} => {}",
-                    ndisapi::MacAddress::from_slice(&value.source()[..]).unwrap(),
-                    ndisapi::MacAddress::from_slice(&value.destination()[..]).unwrap(),
+                    MacAddress::from_slice(&value.source()[..]).unwrap(),
+                    MacAddress::from_slice(&value.destination()[..]).unwrap(),
                 );
             }
 
