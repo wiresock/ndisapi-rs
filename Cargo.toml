@@ -1,6 +1,6 @@
 [package]
 name = "ndisapi-rs"
-version = "0.3.0"
+version = "0.3.2"
 edition = "2021"
 authors = ["Vadim Smirnov <vadim@ntkernel.com>"]
 description = "Windows Packet Filter API for Rust"
