@@ -27,6 +27,6 @@ pub use crate::ndisapi::{
 };
 
 #[cfg(feature = "async")]
-pub use crate::async_ndisapi::NdisapiAdapter;
+pub use crate::async_ndisapi::AsyncAsyncNdisapiAdapter;
 
 pub use net::MacAddress;

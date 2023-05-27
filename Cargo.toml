@@ -39,9 +39,9 @@ futures = "0.3.28"
 tokio = { version = "1.28.1", features = ["full"] }
 
 [[example]]
-name = "async_passthru"
+name = "async-passthru"
 required-features = ["async"]
 
 [[example]]
-name = "async_packthru"
+name = "async-packthru"
 required-features = ["async"]

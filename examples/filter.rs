@@ -14,12 +14,9 @@ use std::sync::{
 };
 use windows::{
     core::Result,
-    Win32::Foundation::HANDLE,
+    Win32::Foundation::{CloseHandle, HANDLE},
     Win32::Networking::WinSock::{IN_ADDR, IN_ADDR_0, IN_ADDR_0_0},
-    Win32::{
-        Foundation::CloseHandle,
-        System::Threading::{CreateEventW, ResetEvent, SetEvent, WaitForSingleObject},
-    },
+    Win32::System::Threading::{CreateEventW, ResetEvent, SetEvent, WaitForSingleObject},
 };
 
 #[derive(Parser)]
@@ -667,39 +664,39 @@ fn main() -> Result<()> {
     )?;
 
     // Allocate single IntermediateBuffer on the stack
-    let mut ib = ndisapi::IntermediateBuffer::default();
+    let mut packet = ndisapi::IntermediateBuffer::default();
 
     // Initialize EthPacket to pass to driver API
-    let packet = ndisapi::EthRequest {
-        adapter_handle: adapters[interface_index].get_handle(),
-        packet: ndisapi::EthPacket {
-            buffer: &mut ib as *mut ndisapi::IntermediateBuffer,
-        },
-    };
+    let mut request = ndisapi::EthRequest::new(adapters[interface_index].get_handle());
+    request.set_packet(&mut packet);
 
     while !terminate.load(Ordering::SeqCst) {
         unsafe {
             WaitForSingleObject(event, u32::MAX);
         }
-        while unsafe { driver.read_packet(&packet) }.ok().is_some() {
+        while driver.read_packet(&mut request).ok().is_some() {
+            let ib = request.take_packet().unwrap();
+
+            let direction_flags = ib.get_device_flags();
+
             // Print packet information
-            if ib.get_device_flags() == ndisapi::DirectionFlags::PACKET_FLAG_ON_SEND {
+            if direction_flags == ndisapi::DirectionFlags::PACKET_FLAG_ON_SEND {
                 println!("\nMSTCP --> Interface ({} bytes)\n", ib.get_length());
             } else {
                 println!("\nInterface --> MSTCP ({} bytes)\n", ib.get_length());
             }
 
             // Print some informations about the sliced packet
-            print_packet_info(&mut ib);
+            print_packet_info(ib);
 
             // Re-inject the packet back into the network stack
-            if ib.get_device_flags() == ndisapi::DirectionFlags::PACKET_FLAG_ON_SEND {
-                match unsafe { driver.send_packet_to_adapter(&packet) } {
+            if direction_flags == ndisapi::DirectionFlags::PACKET_FLAG_ON_SEND {
+                match driver.send_packet_to_adapter(&request) {
                     Ok(_) => {}
                     Err(err) => println!("Error sending packet to adapter. Error code = {err}"),
                 };
             } else {
-                match unsafe { driver.send_packet_to_mstcp(&packet) } {
+                match driver.send_packet_to_mstcp(&request) {
                     Ok(_) => {}
                     Err(err) => println!("Error sending packet to mstcp. Error code = {err}"),
                 }

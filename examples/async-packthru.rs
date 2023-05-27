@@ -1,46 +1,57 @@
 use clap::Parser;
 use etherparse::{InternetSlice::*, LinkSlice::*, TransportSlice::*, *};
-use ndisapi::NdisapiAdapter;
+use ndisapi::{AsyncAsyncNdisapiAdapter, IntermediateBuffer};
 use std::sync::Arc;
 use tokio::sync::oneshot;
 use windows::core::Result;
 
 const PACKET_NUMBER: usize = 256;
 
-/// This async function reads from the given NdisapiAdapter and handles the packets accordingly.
-async fn async_loop(adapter: &mut NdisapiAdapter) -> Result<()> {
+/// This async function reads from the given AsyncNdisapiAdapter and handles the packets accordingly.
+///
+/// It sets the adapter mode to MSTCP_FLAG_SENT_RECEIVE_TUNNEL for intercepting packets sent and received by MSTCP.
+/// It initializes a vector of IntermediateBuffers to store network packet data. Each IntermediateBuffer
+/// provides a structure to handle raw packet data.
+///
+/// The function then enters a loop where it reads packets from the adapter.
+/// If no packets are read, it prints a message and continues to the next iteration of the loop.
+/// If an error occurs during reading, it simply continues to the next iteration of the loop.
+///
+/// When packets are successfully read, it partitions the packets into two collections based on whether
+/// they are to be sent or received. The partitioning is done based on the `DirectionFlags` of the packet.
+///
+/// For each packet, it prints information about the packet and its direction.
+/// After printing the packet info, it sends the packets back to the adapter or upwards to the MSTCP, depending on their direction.
+/// If any error occurs during sending, it logs the error and continues.
+///
+/// # Arguments
+///
+/// * `adapter` - A mutable reference to the `AsyncNdisapiAdapter`.
+///
+/// # Returns
+///
+/// This function returns `Result<()>`. If any operation fails, it returns an `Err` variant with the error information.
+/// If all operations succeed, it returns an `Ok` variant with unit `()`.
+///
+/// # Errors
+///
+/// This function may return an error if any operation on the `AsyncNdisapiAdapter` fails, such as setting the adapter mode,
+/// reading packets, or sending packets.
+///
+async fn async_loop(adapter: &mut AsyncAsyncNdisapiAdapter) -> Result<()> {
     // Set the adapter mode to MSTCP_FLAG_SENT_RECEIVE_TUNNEL.
     adapter.set_adapter_mode(ndisapi::FilterFlags::MSTCP_FLAG_SENT_RECEIVE_TUNNEL)?;
 
     // Initialize a vector of IntermediateBuffers, `ibs`, to store network packet data.
     // Each IntermediateBuffer is heap-allocated, providing a structure to handle raw packet data.
-    let mut ibs: Vec<ndisapi::IntermediateBuffer> = vec![Default::default(); PACKET_NUMBER];
-
-    // Initialize three vectors of EthPackets that will be used for different operations:
-    // `to_read` for reading packets from the network adapter,
-    // `to_adapter` for sending packets to the network adapter,
-    // and `to_mstcp` for sending packets upwards to the network stack.
-    let mut to_read: Vec<ndisapi::EthPacket> = Vec::new();
-    let mut to_adapter: Vec<ndisapi::EthPacket> = Vec::new();
-    let mut to_mstcp: Vec<ndisapi::EthPacket> = Vec::new();
-
-    // For each IntermediateBuffer in `ibs`, create an EthPacket, which will provide a handle
-    // for the NDISAPI driver to interact with the raw packet data in the IntermediateBuffer.
-    //
-    // # Safety
-    //
-    // This operation is safe as long as the `IntermediateBuffer` (ib) outlives
-    // the EthPacket arrays `to_read`, `to_adapter`, and `to_mstcp`. The `ib` instance is owned by `ibs`,
-    // which is guaranteed not to be dropped before these EthPacket arrays. Therefore, the raw pointer
-    // inside the EthPacket will always reference a valid IntermediateBuffer during its lifetime.
-    for ib in ibs.iter_mut() {
-        let packet = unsafe { ndisapi::EthPacket::new(ib) };
-        to_read.push(packet);
-    }
+    let mut ibs: Vec<IntermediateBuffer> = vec![Default::default(); PACKET_NUMBER];
 
     loop {
-        // Read a packet from the adapter.
-        let packets_read = match adapter.read_packets::<PACKET_NUMBER>(&to_read).await {
+        // Read packets from the adapter.
+        let packets_read = match adapter
+            .read_packets::<PACKET_NUMBER, _>(ibs.iter_mut())
+            .await
+        {
             Ok(packets_read) => {
                 if packets_read == 0 {
                     println!("No packets read. Continue reading.");
@@ -56,49 +67,38 @@ async fn async_loop(adapter: &mut NdisapiAdapter) -> Result<()> {
 
         println!("=======================================================================================================");
 
-        // Process each packet.
-        for i in 0..packets_read {
-            let mut eth = to_read[i];
-            let packet = unsafe { eth.get_buffer_mut() };
-
-            // Print packet direction and remaining packets.
-            if packet.get_device_flags() == ndisapi::DirectionFlags::PACKET_FLAG_ON_SEND {
-                println!("\nMSTCP --> Interface ({} bytes) \n", packet.get_length(),);
+        for ib in ibs[0..packets_read].iter_mut() {
+            // Print packet information.
+            if ib.get_device_flags() == ndisapi::DirectionFlags::PACKET_FLAG_ON_SEND {
+                println!("\nMSTCP --> Interface ({} bytes)\n", ib.get_length(),);
             } else {
-                println!("\nInterface --> MSTCP ({} bytes) \n", packet.get_length(),);
+                println!("\nInterface --> MSTCP ({} bytes)\n", ib.get_length(),);
             }
 
-            // Print packet information
-            print_packet_info(packet);
-
-            if packet.get_device_flags() == ndisapi::DirectionFlags::PACKET_FLAG_ON_SEND {
-                to_adapter.push(eth);
-            } else {
-                to_mstcp.push(eth);
-            }
+            // Print some information about the sliced packet.
+            print_packet_info(ib);
         }
+
+        // Partition the iterator into two collections based on the device flag.
+        let (send_packets, receive_packets): (Vec<_>, Vec<_>) = ibs[0..packets_read]
+            .iter_mut()
+            .partition(|ib| ib.get_device_flags() == ndisapi::DirectionFlags::PACKET_FLAG_ON_SEND);
 
         // Re-inject packets back into the network stack
-        if to_adapter.len() > 0 {
-            match adapter.send_packets_to_adapter::<PACKET_NUMBER>(&to_adapter) {
-                Ok(_) => {}
-                Err(err) => println!("Error sending packet to adapter. Error code = {err}"),
-            }
-            to_adapter.clear();
+        match adapter.send_packets_to_adapter::<PACKET_NUMBER, _>(send_packets.into_iter()) {
+            Ok(_) => {}
+            Err(err) => println!("Error sending packet to adapter. Error code = {err}"),
         }
 
-        if to_mstcp.len() > 0 {
-            match adapter.send_packets_to_mstcp::<PACKET_NUMBER>(&to_mstcp) {
-                Ok(_) => {}
-                Err(err) => println!("Error sending packet to mstcp. Error code = {err}"),
-            };
-            to_mstcp.clear();
+        match adapter.send_packets_to_mstcp::<PACKET_NUMBER, _>(receive_packets.into_iter()) {
+            Ok(_) => {}
+            Err(err) => println!("Error sending packet to adapter. Error code = {err}"),
         }
     }
 }
 
 /// This async function runs the main logic of the program.
-async fn main_async(adapter: &mut NdisapiAdapter) {
+async fn main_async(adapter: &mut AsyncAsyncNdisapiAdapter) {
     // Prompts the user to press ENTER to exit.
     println!("Press ENTER to exit");
 
@@ -175,9 +175,10 @@ async fn main() -> Result<()> {
     // Print the name of the selected interface.
     println!("Using interface {}", adapters[interface_index].get_name(),);
 
-    // Create a new instance of NdisapiAdapter with the selected interface.
+    // Create a new instance of AsyncNdisapiAdapter with the selected interface.
     let mut adapter =
-        NdisapiAdapter::new(Arc::clone(&driver), adapters[interface_index].get_handle()).unwrap();
+        AsyncAsyncNdisapiAdapter::new(Arc::clone(&driver), adapters[interface_index].get_handle())
+            .unwrap();
 
     // Execute the main_async function using the previously defined adapter.
     main_async(&mut adapter).await;

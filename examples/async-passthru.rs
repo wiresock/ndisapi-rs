@@ -1,48 +1,43 @@
 use clap::Parser;
 use etherparse::{InternetSlice::*, LinkSlice::*, TransportSlice::*, *};
-use ndisapi::NdisapiAdapter;
+use ndisapi::AsyncAsyncNdisapiAdapter;
 use std::sync::Arc;
 use tokio::sync::oneshot;
 use windows::core::Result;
 
-/// This async function reads from the given NdisapiAdapter and handles the packets accordingly.
-async fn async_loop(adapter: &mut NdisapiAdapter) -> Result<()> {
+/// This async function reads from the given AsyncNdisapiAdapter and handles the packets accordingly.
+async fn async_loop(adapter: &mut AsyncAsyncNdisapiAdapter) -> Result<()> {
     // Set the adapter mode to MSTCP_FLAG_SENT_RECEIVE_TUNNEL.
     adapter.set_adapter_mode(ndisapi::FilterFlags::MSTCP_FLAG_SENT_RECEIVE_TUNNEL)?;
 
     // Allocate single IntermediateBuffer on the stack.
-    let mut ib = ndisapi::IntermediateBuffer::default();
-
-    // Initialize EthPacket to pass to driver API.
-    let packet = ndisapi::EthPacket {
-        buffer: &mut ib as *mut ndisapi::IntermediateBuffer,
-    };
+    let mut packet = ndisapi::IntermediateBuffer::default();
 
     loop {
         // Read a packet from the adapter.
-        let result = adapter.read_packet(packet).await;
+        let result = adapter.read_packet(&mut packet).await;
         if let Err(_) = result {
             continue;
         }
 
         // Print packet information.
-        if ib.get_device_flags() == ndisapi::DirectionFlags::PACKET_FLAG_ON_SEND {
-            println!("\nMSTCP --> Interface ({} bytes)\n", ib.get_length(),);
+        if packet.get_device_flags() == ndisapi::DirectionFlags::PACKET_FLAG_ON_SEND {
+            println!("\nMSTCP --> Interface ({} bytes)\n", packet.get_length(),);
         } else {
-            println!("\nInterface --> MSTCP ({} bytes)\n", ib.get_length(),);
+            println!("\nInterface --> MSTCP ({} bytes)\n", packet.get_length(),);
         }
 
         // Print some information about the sliced packet.
-        print_packet_info(&mut ib);
+        print_packet_info(&mut packet);
 
         // Re-inject the packet back into the network stack.
-        if ib.get_device_flags() == ndisapi::DirectionFlags::PACKET_FLAG_ON_SEND {
-            match adapter.send_packet_to_adapter(packet) {
+        if packet.get_device_flags() == ndisapi::DirectionFlags::PACKET_FLAG_ON_SEND {
+            match adapter.send_packet_to_adapter(&mut packet) {
                 Ok(_) => {}
                 Err(err) => println!("Error sending packet to adapter. Error code = {err}"),
             };
         } else {
-            match adapter.send_packet_to_mstcp(packet) {
+            match adapter.send_packet_to_mstcp(&mut packet) {
                 Ok(_) => {}
                 Err(err) => println!("Error sending packet to mstcp. Error code = {err}"),
             }
@@ -51,7 +46,7 @@ async fn async_loop(adapter: &mut NdisapiAdapter) -> Result<()> {
 }
 
 /// This async function runs the main logic of the program.
-async fn main_async(adapter: &mut NdisapiAdapter) {
+async fn main_async(adapter: &mut AsyncAsyncNdisapiAdapter) {
     // Prompts the user to press ENTER to exit.
     println!("Press ENTER to exit");
 
@@ -128,9 +123,10 @@ async fn main() -> Result<()> {
     // Print the name of the selected interface.
     println!("Using interface {}", adapters[interface_index].get_name(),);
 
-    // Create a new instance of NdisapiAdapter with the selected interface.
+    // Create a new instance of AsyncNdisapiAdapter with the selected interface.
     let mut adapter =
-        NdisapiAdapter::new(Arc::clone(&driver), adapters[interface_index].get_handle()).unwrap();
+        AsyncAsyncNdisapiAdapter::new(Arc::clone(&driver), adapters[interface_index].get_handle())
+            .unwrap();
 
     // Execute the main_async function using the previously defined adapter.
     main_async(&mut adapter).await;

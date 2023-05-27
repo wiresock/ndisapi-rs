@@ -7,11 +7,8 @@ use clap::Parser;
 use etherparse::{InternetSlice::*, LinkSlice::*, TransportSlice::*, *};
 use windows::{
     core::Result,
-    Win32::Foundation::HANDLE,
-    Win32::{
-        Foundation::CloseHandle,
-        System::Threading::{CreateEventW, ResetEvent, WaitForSingleObject},
-    },
+    Win32::Foundation::{CloseHandle, HANDLE},
+    Win32::System::Threading::{CreateEventW, ResetEvent, WaitForSingleObject},
 };
 
 #[derive(Parser)]
@@ -74,25 +71,26 @@ fn main() -> Result<()> {
         ndisapi::FilterFlags::MSTCP_FLAG_SENT_RECEIVE_TUNNEL,
     )?;
 
-    // Allocate single IntermediateBuffer on the stack.
-    let mut ib = ndisapi::IntermediateBuffer::default();
+    // Allocate single IntermediateBuffer on the stack
+    let mut packet = ndisapi::IntermediateBuffer::default();
 
     // Initialize EthPacket to pass to driver API
-    let packet = ndisapi::EthRequest {
-        adapter_handle: adapters[interface_index].get_handle(),
-        packet: ndisapi::EthPacket {
-            buffer: &mut ib as *mut ndisapi::IntermediateBuffer,
-        },
-    };
+    let mut request = ndisapi::EthRequest::new(adapters[interface_index].get_handle());
+    request.set_packet(&mut packet);
 
     // Loop through all the packets from the network until we are done.
     while packets_number > 0 {
         unsafe {
             WaitForSingleObject(event, u32::MAX); // Wait for the event to finish before continuing.
         }
-        while unsafe { driver.read_packet(&packet) }.ok().is_some() {
+        while driver.read_packet(&mut request).ok().is_some() {
+            // Get the packet from the request
+            let ib = request.take_packet().unwrap();
+            // Store the direction flags
+            let direction_flags = ib.get_device_flags();
+
             // Print packet information
-            if ib.get_device_flags() == ndisapi::DirectionFlags::PACKET_FLAG_ON_SEND {
+            if direction_flags == ndisapi::DirectionFlags::PACKET_FLAG_ON_SEND {
                 println!(
                     "\nMSTCP --> Interface ({} bytes) remaining packets {}\n",
                     ib.get_length(),
@@ -109,17 +107,19 @@ fn main() -> Result<()> {
             // Decrement the number of packets.
             packets_number -= 1;
 
-            // Print some information about the sliced packet headers.
-            print_packet_info(&mut ib);
+            // Print some information about the sliced packet
+            print_packet_info(ib);
 
-            // Re-inject the packet back into the network stack.
-            if ib.get_device_flags() == ndisapi::DirectionFlags::PACKET_FLAG_ON_SEND {
-                match unsafe { driver.send_packet_to_adapter(&packet) } {
+            request.set_packet(ib);
+
+            // Re-inject the packet back into the network stack
+            if direction_flags == ndisapi::DirectionFlags::PACKET_FLAG_ON_SEND {
+                match driver.send_packet_to_adapter(&request) {
                     Ok(_) => {}
                     Err(err) => println!("Error sending packet to adapter. Error code = {err}"),
                 };
             } else {
-                match unsafe { driver.send_packet_to_mstcp(&packet) } {
+                match driver.send_packet_to_mstcp(&request) {
                     Ok(_) => {}
                     Err(err) => println!("Error sending packet to mstcp. Error code = {err}"),
                 }

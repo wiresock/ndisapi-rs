@@ -90,20 +90,15 @@ impl Ndisapi {
     /// This function retrieves a single network packet from the NDIS filter driver associated with
     /// the specified `EthRequest`.
     ///
-    /// # Safety
-    ///
-    /// This function is unsafe because `EthRequest.packet` may not be initialized or might point to
-    /// invalid memory.
-    ///
     /// # Arguments
     ///
-    /// * `packet: &EthRequest`: This is a reference to the EthRequest structure. It encompasses an
-    /// intermediate buffer pointer which is designed to be populated with the retrieved packet data.
+    /// * `packet: &mut EthRequest`: A mutable reference to the `EthRequest` structure that will be filled with
+    ///   the retrieved packet data.
     ///
     /// # Returns
     ///
     /// * `Result<()>`: If successful, returns `Ok(())`. Otherwise, returns an error.
-    pub unsafe fn read_packet(&self, packet: &EthRequest) -> Result<()> {
+    pub fn read_packet(&self, packet: &mut EthRequest) -> Result<()> {
         let result = unsafe {
             DeviceIoControl(
                 self.driver_handle,
@@ -127,11 +122,6 @@ impl Ndisapi {
     /// This function retrieves a block of network packets from the NDIS filter driver associated with
     /// the specified `EthMRequest<N>`.
     ///
-    /// # Safety
-    ///
-    /// This function is unsafe because `EthMRequest<N>.packets` may not be initialized or might point to
-    /// invalid memory.
-    ///
     /// # Arguments
     ///
     /// * `packets: &mut EthMRequest<N>`: A mutable reference to the `EthMRequest<N>` structure that will be filled with
@@ -141,10 +131,7 @@ impl Ndisapi {
     ///
     /// * `Result<usize>`: If successful, returns `Ok(packet_count)` where `packet_count` is the number of packets read
     ///   into `EthMRequest<N>`. Otherwise, returns an error.
-    pub unsafe fn read_packets<const N: usize>(
-        &self,
-        packets: &mut EthMRequest<N>,
-    ) -> Result<usize> {
+    pub fn read_packets<const N: usize>(&self, packets: &mut EthMRequest<N>) -> Result<usize> {
         let result = unsafe {
             DeviceIoControl(
                 self.driver_handle,
@@ -168,11 +155,6 @@ impl Ndisapi {
     /// This function sends a single network packet to the NDIS filter driver associated with
     /// the specified `EthRequest`, which will then be passed down the network stack.
     ///
-    /// # Safety
-    ///
-    /// This function is unsafe because `EthRequest.packet` may not be initialized or might point to
-    /// invalid memory.
-    ///
     /// # Arguments
     ///
     /// * `packet: &EthRequest`: A reference to the `EthRequest` structure containing the packet data to be sent.
@@ -180,7 +162,7 @@ impl Ndisapi {
     /// # Returns
     ///
     /// * `Result<()>`: If successful, returns `Ok(())`. Otherwise, returns an error.
-    pub unsafe fn send_packet_to_adapter(&self, packet: &EthRequest) -> Result<()> {
+    pub fn send_packet_to_adapter(&self, packet: &EthRequest) -> Result<()> {
         let result = unsafe {
             DeviceIoControl(
                 self.driver_handle,
@@ -204,11 +186,6 @@ impl Ndisapi {
     /// This function sends a single network packet to the NDIS filter driver associated with
     /// the specified `EthRequest`, which will then be passed down the network stack to the Microsoft TCP/IP stack.
     ///
-    /// # Safety
-    ///
-    /// This function is unsafe because `EthRequest.packet` may not be initialized or might point to
-    /// invalid memory.
-    ///
     /// # Arguments
     ///
     /// * `packet: &EthRequest`: A reference to the `EthRequest` structure containing the packet data to be sent.
@@ -216,7 +193,7 @@ impl Ndisapi {
     /// # Returns
     ///
     /// * `Result<()>`: If successful, returns `Ok(())`. Otherwise, returns an error.
-    pub unsafe fn send_packet_to_mstcp(&self, packet: &EthRequest) -> Result<()> {
+    pub fn send_packet_to_mstcp(&self, packet: &EthRequest) -> Result<()> {
         let result = unsafe {
             DeviceIoControl(
                 self.driver_handle,
@@ -240,11 +217,6 @@ impl Ndisapi {
     /// This function sends a block of network packets to the NDIS filter driver associated with
     /// the specified `EthMRequest<N>`, which will then be passed down the network stack.
     ///
-    /// # Safety
-    ///
-    /// This function is unsafe because `EthMRequest<N>.packets` may not be initialized or might point to
-    /// invalid memory.
-    ///
     /// # Arguments
     ///
     /// * `packets: &EthMRequest<N>`: A reference to the `EthMRequest<N>` structure containing the packet data to be sent.
@@ -252,10 +224,7 @@ impl Ndisapi {
     /// # Returns
     ///
     /// * `Result<()>`: If successful, returns `Ok(())`. Otherwise, returns an error.
-    pub unsafe fn send_packets_to_adapter<const N: usize>(
-        &self,
-        packets: &EthMRequest<N>,
-    ) -> Result<()> {
+    pub fn send_packets_to_adapter<const N: usize>(&self, packets: &EthMRequest<N>) -> Result<()> {
         let result = unsafe {
             DeviceIoControl(
                 self.driver_handle,
@@ -279,11 +248,6 @@ impl Ndisapi {
     /// This function sends a block of network packets to the NDIS filter driver associated with
     /// the specified `EthMRequest<N>`, which will then be passed up the network stack to the Microsoft TCP/IP stack.
     ///
-    /// # Safety
-    ///
-    /// This function is unsafe because `EthMRequest<N>.packets` may not be initialized or might point to
-    /// invalid memory.
-    ///
     /// # Arguments
     ///
     /// * `packets: &EthMRequest<N>`: A reference to the `EthMRequest<N>` structure containing the packet data to be sent.
@@ -291,10 +255,7 @@ impl Ndisapi {
     /// # Returns
     ///
     /// * `Result<()>`: If successful, returns `Ok(())`. Otherwise, returns an error.
-    pub unsafe fn send_packets_to_mstcp<const N: usize>(
-        &self,
-        packets: &EthMRequest<N>,
-    ) -> Result<()> {
+    pub fn send_packets_to_mstcp<const N: usize>(&self, packets: &EthMRequest<N>) -> Result<()> {
         let result = unsafe {
             DeviceIoControl(
                 self.driver_handle,
