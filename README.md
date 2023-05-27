@@ -36,7 +36,7 @@ ndisapi-rs = "0.3.0"
 Here's an example of how to enumerate network adapters and print their information:
 
 ```rust
-use ndisapi::{MacAddress, Ndisapi};
+use ndisapi_rs::{MacAddress, Ndisapi};
 
 fn main() {
     let ndis = Ndisapi::new("NDISRD").expect("Failed to create NdisApi instance");
