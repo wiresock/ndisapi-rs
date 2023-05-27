@@ -19,7 +19,7 @@ jobs:
       - uses: release-drafter/release-drafter@v5
         id: release_drafter
         env:
-          GIT_AUTH_TOKEN: ${{ secrets.NDISAPI_PAT_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.NDISAPI_PAT_TOKEN }}
 
   build:
     name: Build
