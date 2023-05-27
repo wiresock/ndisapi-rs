@@ -83,9 +83,7 @@ fn main() -> Result<()> {
 
     // Initialize the read EthMRequest object.
     for ib in &mut ibs {
-        to_read.push(ndisapi::EthPacket {
-            buffer: ib as *mut _,
-        })?;
+        to_read.push(ib)?;
     }
 
     // Main loop: Process packets until the specified number of packets is reached.
@@ -99,7 +97,7 @@ fn main() -> Result<()> {
         let mut packets_read: usize;
         while {
             packets_read =
-                unsafe { driver.read_packets::<PACKET_NUMBER>(&mut to_read) }.unwrap_or(0usize);
+               driver.read_packets::<PACKET_NUMBER>(&mut to_read).unwrap_or(0usize);
             packets_read > 0
         } {
             // Decrement the packets counter.
@@ -107,11 +105,11 @@ fn main() -> Result<()> {
 
             // Process each packet.
             for i in 0..packets_read {
-                let mut eth = to_read.at(i).unwrap();
-                let packet = unsafe { eth.get_buffer_mut() };
+                let packet = to_read.take_packet(i).unwrap();
+                let direction_flags = packet.get_device_flags();
 
                 // Print packet direction and remaining packets.
-                if packet.get_device_flags() == ndisapi::DirectionFlags::PACKET_FLAG_ON_SEND {
+                if direction_flags == ndisapi::DirectionFlags::PACKET_FLAG_ON_SEND {
                     println!(
                         "\nMSTCP --> Interface ({} bytes) remaining packets {}\n",
                         packet.get_length(),
@@ -128,27 +126,34 @@ fn main() -> Result<()> {
                 // Print packet information
                 print_packet_info(packet);
 
-                if packet.get_device_flags() == ndisapi::DirectionFlags::PACKET_FLAG_ON_SEND {
-                    to_adapter.push(eth)?;
+                if direction_flags == ndisapi::DirectionFlags::PACKET_FLAG_ON_SEND {
+                    to_adapter.push(packet)?;
                 } else {
-                    to_mstcp.push(eth)?;
+                    to_mstcp.push(packet)?;
                 }
             }
 
             // Re-inject packets back into the network stack
+            let to_adapter_packets_num = to_adapter.get_packet_number();
             if to_adapter.get_packet_number() > 0 {
-                match unsafe { driver.send_packets_to_adapter::<PACKET_NUMBER>(&to_adapter) } {
+                match driver.send_packets_to_adapter::<PACKET_NUMBER>(&to_adapter){
                     Ok(_) => {}
                     Err(err) => println!("Error sending packet to adapter. Error code = {err}"),
+                }
+                for i in 0..to_adapter.get_packet_number() {
+                    to_read.put_packet(i as usize, to_adapter.take_packet(i as usize).unwrap()).unwrap();
                 }
                 to_adapter.reset();
             }
 
             if !to_mstcp.get_packet_number() > 0 {
-                match unsafe { driver.send_packets_to_mstcp::<PACKET_NUMBER>(&to_mstcp) } {
+                match driver.send_packets_to_mstcp::<PACKET_NUMBER>(&to_mstcp) {
                     Ok(_) => {}
                     Err(err) => println!("Error sending packet to mstcp. Error code = {err}"),
                 };
+                for i in 0..to_mstcp.get_packet_number() {
+                    to_read.put_packet((to_adapter_packets_num + i) as usize, to_mstcp.take_packet(i as usize).unwrap()).unwrap();
+                }
                 to_mstcp.reset();
             }
 

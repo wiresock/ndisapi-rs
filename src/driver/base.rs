@@ -180,56 +180,95 @@ pub struct AdapterMode {
     pub flags: FilterFlags,
 }
 
-/// This structure represents an Ethernet packet with a pointer to an `IntermediateBuffer`.
+/// This structure represents an Ethernet packet with an optional mutable reference to an `IntermediateBuffer`.
 ///
 /// A Rust equivalent for the [_NDISRD_ETH_Packet](https://www.ntkernel.com/docs/windows-packet-filter-documentation/structures/_ndisrd_eth_packet/) structure.
-#[repr(C, packed)]
-#[derive(Debug, Copy, Clone)]
-pub struct EthPacket {
-    /// A raw pointer to an `IntermediateBuffer` representing the buffer for this Ethernet packet.
-    pub buffer: *mut IntermediateBuffer,
+///
+/// The `buffer` field is an Option wrapping a mutable reference to an `IntermediateBuffer`. This design allows for flexibility
+/// when manipulating Ethernet packets, as a packet may not always have a buffer associated with it (i.e., the buffer may be `None`).
+#[repr(C)]
+pub struct EthPacket<'a> {
+    /// An optional mutable reference to an `IntermediateBuffer` representing the buffer for this Ethernet packet.
+    pub buffer: Option<&'a mut IntermediateBuffer>,
 }
 
-impl EthPacket {
-    /// Returns a mutable reference to the `IntermediateBuffer` pointed to by the `EthPacket`.
-    ///
-    /// # Safety
-    ///
-    /// This function is unsafe because `EthPacket.buffer` may not be initialized or may point to
-    /// invalid memory.
-    pub unsafe fn get_buffer_mut(&mut self) -> &mut IntermediateBuffer {
-        &mut *self.buffer
-    }
-
-    /// Returns a reference to the `IntermediateBuffer` pointed to by the `EthPacket`.
-    ///
-    /// # Safety
-    ///
-    /// This function is unsafe because `EthPacket.buffer` may not be initialized or may point to
-    /// invalid memory.
-    pub unsafe fn get_buffer(&self) -> &IntermediateBuffer {
-        &*self.buffer
+/// Implements the `Into` trait for `EthPacket`.
+///
+/// This implementation allows for a straightforward conversion from an `EthPacket` into an `Option<&'a mut IntermediateBuffer>`.
+/// This conversion is useful when you want to manipulate the buffer of a packet directly.
+impl<'a> Into<Option<&'a mut IntermediateBuffer>> for EthPacket<'a> {
+    fn into(self) -> Option<&'a mut IntermediateBuffer> {
+        self.buffer
     }
 }
 
-/// This structure represents a request for an Ethernet packet, containing an adapter handle and an `EthPacket`.
+/// Implements the `Default` trait for `EthPacket`.
+///
+/// This implementation allows for the creation of an "empty" `EthPacket`, i.e., a packet without a buffer. This is useful when
+/// initializing a variable of type `EthPacket` without immediately associating a buffer with it.
+impl<'a> Default for EthPacket<'a> {
+    fn default() -> Self {
+        EthPacket {
+            buffer: None,
+        }
+    }
+}
+
+/// This structure represents a request for an Ethernet packet, containing a network adapter handle and an `EthPacket`.
 ///
 /// A Rust equivalent for the [_ETH_REQUEST](https://www.ntkernel.com/docs/windows-packet-filter-documentation/structures/_eth_request/) structure.
-#[repr(C, packed)]
-#[derive(Debug, Copy, Clone)]
-pub struct EthRequest {
+///
+/// `adapter_handle` is a handle to the network adapter associated with this request. The `packet` field is an `EthPacket` that represents the Ethernet packet for this request.
+#[repr(C)]
+pub struct EthRequest<'a> {
     /// A handle to the network adapter associated with this request.
     pub adapter_handle: HANDLE,
     /// An `EthPacket` representing the Ethernet packet for this request.
-    pub packet: EthPacket,
+    pub packet: EthPacket<'a>,
 }
 
-/// This structure represents a multiple Ethernet packets request, containing an adapter handle, packet number, packet success, and an array of `EthPacket`.
+/// Provides methods for manipulating the `EthPacket` within an `EthRequest`.
+impl<'a> EthRequest<'a> {
+    /// Creates a new `EthRequest` with the specified adapter handle and an empty `EthPacket`.
+    ///
+    /// # Arguments
+    ///
+    /// * `adapter_handle` - A handle to the network adapter to be associated with this request.
+    ///
+    /// # Returns
+    ///
+    /// * A new `EthRequest` instance with the specified adapter handle and an empty `EthPacket`.
+    pub fn new(adapter_handle: HANDLE) -> Self {
+        Self {
+            adapter_handle,
+            packet: EthPacket { buffer: None },
+        }
+    }
+    
+    /// Takes the `EthPacket` out from the `EthRequest`, replacing it with `None`.
+    ///
+    /// This is useful when you want to use the packet's buffer elsewhere, while ensuring that the `EthRequest` no longer has access to it.
+    pub fn take_packet(&mut self) -> Option<&'a mut IntermediateBuffer> {
+        self.packet.buffer.take()
+    }
+
+    /// Sets the `EthPacket` for the `EthRequest` using a mutable reference to an `IntermediateBuffer`.
+    ///
+    /// This method allows you to associate a new buffer with the `EthRequest`. This is useful when you have a buffer that you want to send with the `EthRequest`.
+    pub fn set_packet(&mut self, buffer: &'a mut IntermediateBuffer) {
+        self.packet = EthPacket {
+            buffer: Some(buffer),
+        };
+    }
+}
+
+/// This structure represents a request for multiple Ethernet packets, containing a network adapter handle, packet number, packet success count, and an array of `EthPacket` instances.
 ///
 /// A Rust equivalent for the [_ETH_M_REQUEST](https://www.ntkernel.com/docs/windows-packet-filter-documentation/structures/_eth_m_request/) structure.
-#[repr(C, packed)]
-#[derive(Debug, Copy, Clone)]
-pub struct EthMRequest<const N: usize> {
+///
+/// `adapter_handle` is a handle to the network adapter associated with this request. `packet_number` is the number of packets in the `packets` array. `packet_success` is the number of packets that have been successfully processed. `packets` is an array of `EthPacket` instances representing the Ethernet packets for this request.
+#[repr(C)]
+pub struct EthMRequest<'a, const N: usize> {
     /// A handle to the network adapter associated with this request.
     adapter_handle: HANDLE,
     /// The number of packets in the `packets` array.
@@ -237,55 +276,93 @@ pub struct EthMRequest<const N: usize> {
     /// The number of successfully processed packets.
     packet_success: u32,
     /// An array of `EthPacket` representing the Ethernet packets for this request.
-    packets: [EthPacket; N],
+    packets: [EthPacket<'a>; N],
 }
 
-impl<const N: usize> EthMRequest<N> {
+/// Provides methods for manipulating the `EthPacket` instances within an `EthMRequest`.
+impl<'a, const N: usize> EthMRequest<'a, N> {
     /// Creates a new `EthMRequest` with the specified adapter handle.
+    ///
+    /// All packets in the request are initialized to empty.
     pub fn new(adapter_handle: HANDLE) -> Self {
+        let packets = [(); N].map(|_| EthPacket { buffer: None });
         Self {
             adapter_handle,
             packet_number: 0,
             packet_success: 0,
-            packets: [EthPacket {
-                buffer: core::ptr::null_mut(),
-            }; N],
+            packets,
         }
     }
 
-    /// Returns an `EthPacket` at the specified index if the index is within the valid range.
-    pub fn at(&self, index: usize) -> Option<EthPacket> {
+    /// Takes the `IntermediateBuffer` from the `EthPacket` at the specified index, replacing it with `None`.
+    ///
+    /// This is useful when you want to use the packet's buffer elsewhere, while ensuring that the `EthMRequest` no longer has access to it.
+    pub fn take_packet(&mut self, index: usize) -> Option<&'a mut IntermediateBuffer> {
         if index < self.packet_number as usize {
-            Some(self.packets[index])
+            self.packets[index].buffer.take()
         } else {
             None
         }
     }
 
+    /// Sets the `IntermediateBuffer` for the `EthPacket` at the specified index.
+    ///
+    /// This method allows you to associate a new buffer with the `EthPacket` at the given index.
+    pub fn put_packet(&mut self, index: usize, buffer: &'a mut IntermediateBuffer) -> Result<()> {
+        if index < self.packet_number as usize {
+            self.packets[index].buffer = Some(buffer);
+            Ok(())
+        } else {
+            Err(ERROR_INVALID_PARAMETER.into())
+        }
+    }
+
     /// Returns the number of packets in the `packets` array.
+    ///
+    /// This provides a count of all packets, regardless of whether they've been successfully processed.
     pub fn get_packet_number(&self) -> u32 {
         self.packet_number
     }
 
     /// Sets the number of packets in the `packets` array.
+    ///
+    /// This allows you to manually set the count of packets in the request.
     pub fn set_packet_number(&mut self, number: u32) {
         self.packet_number = number;
     }
 
     /// Resets the packet number to 0.
+    ///
+    /// This effectively empties the request of packets.
     pub fn reset(&mut self) {
         self.set_packet_number(0);
     }
 
-    /// Returns the number of successfully processed packets.
+    /// Returns the number of successfully processed packets
     pub fn get_packet_success(&self) -> u32 {
         self.packet_success
     }
 
-    /// Pushes an `EthPacket` to the `packets` array if there's available space, returning an error if the array is full.
-    pub fn push(&mut self, packet: EthPacket) -> Result<()> {
+    /// Adds an `IntermediateBuffer` to the `packets` array if there's available space. 
+    /// This effectively wraps the buffer into an `EthPacket` and stores it in the array.
+    ///
+    /// The `packet_number` field of the `EthMRequest` is automatically incremented to reflect the addition of the new packet.
+    ///
+    /// If there is no available space in the array (i.e., if the `packet_number` is equal to the array length `N`), this method returns an error, specifically `ERROR_INVALID_PARAMETER`.
+    ///
+    /// This method provides an idiomatic way of adding new packets to an `EthMRequest` in Rust.
+    ///
+    /// # Arguments
+    ///
+    /// * `packet` - A mutable reference to the `IntermediateBuffer` to be added to the `packets` array.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(())` if the buffer was successfully added as a packet.
+    /// * `Err(ERROR_INVALID_PARAMETER.into())` if the `packets` array is full.
+    pub fn push(&mut self, packet: &'a mut IntermediateBuffer) -> Result<()> {
         if (self.packet_number as usize) < N {
-            self.packets[self.packet_number as usize] = packet;
+            self.packets[self.packet_number as usize] = EthPacket { buffer: Some(packet) };
             self.packet_number += 1;
             Ok(())
         } else {
@@ -423,3 +500,24 @@ impl RasLinks {
         self.number_of_links as usize
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn size_of_ethpacket() {
+        assert_eq!(std::mem::size_of::<*mut IntermediateBuffer>(), std::mem::size_of::<EthPacket>());
+    }
+
+    #[test]
+    fn size_of_ethrequest() {
+        assert_eq!(std::mem::size_of::<EthPacket>() + std::mem::size_of::<HANDLE>(), std::mem::size_of::<EthRequest>());
+    }
+
+    #[test]
+    fn size_of_ethmrequest() {
+        assert_eq!(std::mem::size_of::<EthPacket>() + std::mem::size_of::<HANDLE>() + 2*std::mem::size_of::<u32>(), std::mem::size_of::<EthMRequest<1>>());
+    }
+}
+
