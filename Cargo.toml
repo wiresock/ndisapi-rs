@@ -1,18 +1,22 @@
 [package]
-name = "ndisapi"
-version = "0.2.2"
+name = "ndisapi-rs"
+version = "0.3.0"
 edition = "2021"
 authors = ["Vadim Smirnov <vadim@ntkernel.com>"]
 description = "Windows Packet Filter API for Rust"
 license = "Apache-2.0"
-documentation = "https://docs.rs/ndisapi"
-repository = "https://github.com/firezone/ndisapi"
+documentation = "https://docs.rs/ndisapi-rs"
+repository = "https://github.com/wiresock/ndisapi-rs"
 readme = "README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 bitflags = "2.1.0"
+futures = { version = "0.3.28", optional = true }
+
+[features]
+async = ["futures"]
 
 [dependencies.windows]
 version = "0.48.0"
@@ -31,3 +35,13 @@ features = [
 etherparse = "0.13"
 clap = {version = "4.0.32", features = ["derive"]}
 ctrlc = "3.2.4"
+futures = "0.3.28"
+tokio = { version = "1.28.1", features = ["full"] }
+
+[[example]]
+name = "async-passthru"
+required-features = ["async"]
+
+[[example]]
+name = "async-packthru"
+required-features = ["async"]

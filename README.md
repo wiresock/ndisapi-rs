@@ -1,10 +1,10 @@
-# NDISAPI
+# NDISAPI-RS
 
-[![Crates.io](https://img.shields.io/crates/v/ndisapi.svg)](https://crates.io/crates/ndisapi)
-[![Documentation](https://docs.rs/ndisapi/badge.svg)](https://docs.rs/ndisapi)
-[![License](https://img.shields.io/crates/l/ndisapi)](https://github.com/firezone/ndisapi/blob/main/LICENSE)
+[![Crates.io](https://img.shields.io/crates/v/ndisapi-rs.svg)](https://crates.io/crates/ndisapi-rs)
+[![Documentation](https://docs.rs/ndisapi-rs/badge.svg)](https://docs.rs/ndisapi-rs)
+[![License](https://img.shields.io/crates/l/ndisapi-rs)](https://github.com/wiresock/ndisapi-rs/blob/main/LICENSE)
 
-NDISAPI is a Rust crate for interacting with the [Windows Packet Filter](https://www.ntkernel.com/windows-packet-filter/) driver. It provides an easy-to-use, safe, and efficient interface to efficiently filter (inspect and modify) raw network packets at the NDIS level of the network stack with minimal impact on network activity.
+NDISAPI-RS is a Rust crate for interacting with the [Windows Packet Filter](https://www.ntkernel.com/windows-packet-filter/) driver. It provides an easy-to-use, safe, and efficient interface to efficiently filter (inspect and modify) raw network packets at the NDIS level of the network stack with minimal impact on network activity.
 
 Windows Packet Filter (WinpkFilter) is a high-performance, lightweight packet filtering framework for Windows, enabling developers to efficiently inspect, modify, and control raw network packets at the NDIS level. With user-friendly APIs and support for various Windows versions, WinpkFilter simplifies network packet manipulation without requiring kernel-mode programming expertise.
 
@@ -28,7 +28,7 @@ Add the following to your `Cargo.toml` file:
 
 ```toml
 [dependencies]
-ndisapi = "0.2.0"
+ndisapi-rs = "0.3.0"
 ```
 
 ## Usage
@@ -60,9 +60,9 @@ fn main() {
 }
 ```
 
-For more examples and in-depth usage, check out the [documentation](https://docs.rs/ndisapi).
+For more examples and in-depth usage, check out the [documentation](https://docs.rs/ndisapi-rs).
 
 ## License
 
-This project is licensed under the Apache License 2.0. See [LICENSE](https://github.com/firezone/ndisapi/blob/main/LICENSE) for details.
+This project is licensed under the Apache License 2.0. See [LICENSE](https://github.com/wiresock/ndisapi-rs/blob/main/LICENSE) for details.
 

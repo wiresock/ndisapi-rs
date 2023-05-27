@@ -5,7 +5,7 @@
 /// # Example
 ///
 /// ```
-/// use ndisapi::MacAddress;
+/// use ndisapi_rs::MacAddress;
 ///
 /// let mac = MacAddress::from_slice(&[0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC]).unwrap();
 /// assert_eq!(format!("{}", mac), "12:34:56:78:9A:BC");
