@@ -1,6 +1,8 @@
 use clap::Parser;
 use etherparse::{InternetSlice::*, LinkSlice::*, TransportSlice::*, *};
-use ndisapi_rs::{AsyncNdisapiAdapter, Ndisapi, MacAddress, FilterFlags, IntermediateBuffer,DirectionFlags, };
+use ndisapi_rs::{
+    AsyncNdisapiAdapter, DirectionFlags, FilterFlags, IntermediateBuffer, MacAddress, Ndisapi,
+};
 use std::sync::Arc;
 use tokio::sync::oneshot;
 use windows::core::Result;
@@ -16,7 +18,7 @@ async fn async_loop(adapter: &mut AsyncNdisapiAdapter) -> Result<()> {
     loop {
         // Read a packet from the adapter.
         let result = adapter.read_packet(&mut packet).await;
-        if let Err(_) = result {
+        if result.is_err() {
             continue;
         }
 
@@ -102,8 +104,7 @@ async fn main() -> Result<()> {
 
     // Create a new Ndisapi driver instance.
     let driver = Arc::new(
-        Ndisapi::new("NDISRD")
-            .expect("WinpkFilter driver is not installed or failed to load!"),
+        Ndisapi::new("NDISRD").expect("WinpkFilter driver is not installed or failed to load!"),
     );
 
     // Print the detected version of the Windows Packet Filter.

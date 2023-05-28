@@ -28,7 +28,7 @@ Add the following to your `Cargo.toml` file:
 
 ```toml
 [dependencies]
-ndisapi-rs = "0.3.3"
+ndisapi-rs = "0.4.0"
 ```
 
 ## Usage
@@ -61,6 +61,78 @@ fn main() {
 ```
 
 For more examples and in-depth usage, check out the [documentation](https://docs.rs/ndisapi-rs).
+
+## Demo
+
+Here is an example of how to run the `listadapters` example:
+
+```bash
+PS D:\firezone\ndisapi> cargo run --example listadapters
+   Compiling ndisapi-rs v0.4.0 (D:\firezone\ndisapi)
+    Finished dev [unoptimized + debuginfo] target(s) in 3.22s
+     Running `target\debug\examples\listadapters.exe`
+Detected Windows Packet Filter version 3.4.3
+1. Local Area Connection* 10
+        \DEVICE\{EDEE8C42-F604-4A7B-BFAA-6B110923217E}
+         Medium: 0
+         MAC: 9A:47:3D:60:26:9D
+         MTU: 1500
+         FilterFlags: FilterFlags(0x0)
+Getting OID_GEN_CURRENT_PACKET_FILTER Error: Data error (cyclic redundancy check).
+         OID_802_3_CURRENT_ADDRESS: 9A:47:3D:60:26:9D
+2. vEthernet (Default Switch)
+        \DEVICE\{6FE04972-B2B5-4F5C-97E6-B8518A017192}
+         Medium: 0
+         MAC: 00:15:5D:91:A3:15
+         MTU: 1500
+         FilterFlags: FilterFlags(0x0)
+         OID_GEN_CURRENT_PACKET_FILTER: 0x0000000B
+         OID_802_3_CURRENT_ADDRESS: 00:15:5D:91:A3:15
+...
+
+12. vEthernet (WLAN Virtual Switch)
+        \DEVICE\{05F9267C-C548-4822-8535-9A57F1A99DB7}
+         Medium: 0
+         MAC: 18:47:3D:60:26:9D
+         MTU: 1500
+         FilterFlags: FilterFlags(0x0)
+         OID_GEN_CURRENT_PACKET_FILTER: 0x0000000B
+         OID_802_3_CURRENT_ADDRESS: 18:47:3D:60:26:9D
+
+```
+
+Following is the demonstration of the async-packthru example. For this scenario, we will assume that `vEthernet (WLAN Virtual Switch)` is the default internet connection
+
+```bash
+PS D:\firezone\ndisapi> cargo run --example async-packthru -- --interface-index 12
+   Compiling ndisapi-rs v0.4.0 (D:\firezone\ndisapi)
+    Finished dev [unoptimized + debuginfo] target(s) in 4.23s
+     Running `target\debug\examples\async-packthru.exe --interface-index 12`
+Detected Windows Packet Filter version 3.4.3
+Using interface \DEVICE\{05F9267C-C548-4822-8535-9A57F1A99DB7}
+Press ENTER to exit
+=======================================================================================================
+
+Interface --> MSTCP (110 bytes)
+
+ Ethernet 50:FF:20:90:2F:15 => 18:47:3D:60:26:9D
+  Ipv4 35.74.10.178 => 192.168.3.126
+   TCP 443 -> 56028
+=======================================================================================================
+
+Interface --> MSTCP (42 bytes)
+
+ Ethernet 50:FF:20:90:2F:15 => FF:FF:FF:FF:FF:FF
+=======================================================================================================
+
+MSTCP --> Interface (54 bytes)
+
+ Ethernet 18:47:3D:60:26:9D => 50:FF:20:90:2F:15
+  Ipv4 192.168.3.126 => 35.74.10.178
+   TCP 56028 -> 443
+
+Shutting down...
+```
 
 ## License
 

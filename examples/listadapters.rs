@@ -13,8 +13,8 @@ use windows::core::Result;
 const OID_802_3_CURRENT_ADDRESS: u32 = 0x01010102;
 
 fn main() -> Result<()> {
-    let driver = Ndisapi::new("NDISRD")
-        .expect("WinpkFilter driver is not installed or failed to load!");
+    let driver =
+        Ndisapi::new("NDISRD").expect("WinpkFilter driver is not installed or failed to load!");
 
     println!(
         "Detected Windows Packet Filter version {}",

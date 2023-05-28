@@ -11,11 +11,12 @@
 /// assert_eq!(format!("{}", mac), "12:34:56:78:9A:BC");
 /// assert_eq!(format!("{:?}", mac), "12:34:56:78:9A:BC");
 /// ```
-use crate::driver::ETHER_ADDR_LENGTH;
 use std::fmt::{Debug, Display, Formatter, Result};
 
+const ETHER_ADDR_LENGTH: usize = 6;
+
 /// A MAC address represented as a 6-byte array of unsigned integers.
-#[derive(Default)]
+#[derive(Default, PartialEq, Eq, Clone, Copy, Hash, PartialOrd, Ord)]
 pub struct MacAddress([u8; ETHER_ADDR_LENGTH]);
 
 impl Display for MacAddress {
@@ -54,7 +55,7 @@ impl MacAddress {
         if slice.len() < ETHER_ADDR_LENGTH {
             None
         } else {
-            mac_address.0.copy_from_slice(slice);
+            mac_address.0[..ETHER_ADDR_LENGTH].copy_from_slice(&slice[..ETHER_ADDR_LENGTH]);
             Some(mac_address)
         }
     }
