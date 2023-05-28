@@ -1,14 +1,23 @@
 //! The NDISAPI crate is a Rust library that provides functionality for capturing and filtering network packets
-//! on Windows operating systems. The crate contains three main modules: driver, ndisapi, and net.
+//! on Windows operating systems. The crate contains the following main modules: driver, ndisapi, async_api, and main.
 //!
+//! ## driver
 //! The driver module provides low-level functionality for interacting with Windows device drivers, and is used
 //! by the ndisapi module to capture and filter network packets.
 //!
+//! ## ndisapi
 //! The ndisapi module contains the main functionality for capturing and filtering network packets.
-//! This includes various structs and enums for representing packet data and filter settings, as well as a Ndisapi
+//! This includes various structs and enums for representing packet data and filter settings, as well as an Ndisapi
 //! struct for interacting with the driver and performing packet capture and filtering operations.
 //!
-//! The net module contains a MacAddress struct for representing and manipulating MAC addresses.
+//! ## async_io
+//! The async_io module provides asynchronous methods for managing and interacting with the network adapter. This includes
+//! reading and writing Ethernet packets, and adjusting adapter settings. This is achieved through the use of `async` functions,
+//! which allow these operations to be performed without blocking the rest of your application.
+//!
+//! ## netlib
+//! The netlib module provides functionality for interacting with the Windows IP Helper API. This includes structs and enums
+//! for representing network adapter information, IP addresses, and other network-related data.
 
 mod async_api;
 mod driver;
