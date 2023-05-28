@@ -1,6 +1,6 @@
 [package]
 name = "ndisapi-rs"
-version = "0.3.3"
+version = "0.4.0"
 edition = "2021"
 authors = ["Vadim Smirnov <vadim@ntkernel.com>"]
 description = "Windows Packet Filter API for Rust"
@@ -13,10 +13,9 @@ readme = "README.md"
 
 [dependencies]
 bitflags = "2.1.0"
-futures = { version = "0.3.28", optional = true }
-
-[features]
-async = ["futures"]
+futures = "0.3.28"
+uuid = { version = "1.3", features = ["v4", "serde", "v6"] }
+ipnetwork = "0.20.0"
 
 [dependencies.windows]
 version = "0.48.0"
@@ -27,7 +26,9 @@ features = [
     "Win32_System_Threading",
     "Win32_System_IO",
     "Win32_Storage_FileSystem",
+    "Win32_NetworkManagement_Ndis",
     "Win32_Networking_WinSock",
+    "Win32_NetworkManagement_IpHelper",
     "Win32_System_SystemInformation",
     ]
 
@@ -38,10 +39,3 @@ ctrlc = "3.2.4"
 futures = "0.3.28"
 tokio = { version = "1.28.1", features = ["full"] }
 
-[[example]]
-name = "async-passthru"
-required-features = ["async"]
-
-[[example]]
-name = "async-packthru"
-required-features = ["async"]

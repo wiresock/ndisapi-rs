@@ -8,6 +8,12 @@
 /// 6. Redirect only outgoing ICMP ping request packets to user mode. Pass all others.
 use clap::Parser;
 use etherparse::{InternetSlice::*, LinkSlice::*, TransportSlice::*, *};
+use ndisapi_rs::{
+    DirectionFlags, Eth802_3FilterFlags, EthRequest, FilterFlags, FilterLayerFlags,
+    IcmpFilterFlags, IntermediateBuffer, IpV4FilterFlags, IpV6FilterFlags, MacAddress, Ndisapi,
+    StaticFilterTable, TcpUdpFilterFlags, ETH_802_3, FILTER_PACKET_DROP, FILTER_PACKET_PASS,
+    FILTER_PACKET_REDIRECT, ICMP, IPV4, IPV6, IP_SUBNET_V4_TYPE, TCPUDP,
+};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
@@ -18,7 +24,6 @@ use windows::{
     Win32::Networking::WinSock::{IN_ADDR, IN_ADDR_0, IN_ADDR_0_0},
     Win32::System::Threading::{CreateEventW, ResetEvent, SetEvent, WaitForSingleObject},
 };
-use ndisapi_rs::{Ndisapi, StaticFilterTable, FilterLayerFlags, FILTER_PACKET_REDIRECT, DirectionFlags, IPV4, IpV4FilterFlags, TCPUDP, TcpUdpFilterFlags, FILTER_PACKET_PASS, IPV6, IpV6FilterFlags, FILTER_PACKET_DROP, IP_SUBNET_V4_TYPE, ETH_802_3, Eth802_3FilterFlags, ICMP, IcmpFilterFlags, FilterFlags, IntermediateBuffer, EthRequest, MacAddress};
 
 #[derive(Parser)]
 struct Cli {
@@ -54,8 +59,8 @@ fn load_ipv4_dns_filters(ndisapi: &Ndisapi) -> Result<()> {
     // 1. Outgoing DNS requests filter: REDIRECT OUT UDP packets with destination PORT 53
     // Common values
     filter_table.static_filters[0].adapter_handle = 0; // applied to all adapters
-    filter_table.static_filters[0].valid_fields = FilterLayerFlags::NETWORK_LAYER_VALID
-        | FilterLayerFlags::TRANSPORT_LAYER_VALID;
+    filter_table.static_filters[0].valid_fields =
+        FilterLayerFlags::NETWORK_LAYER_VALID | FilterLayerFlags::TRANSPORT_LAYER_VALID;
     filter_table.static_filters[0].filter_action = FILTER_PACKET_REDIRECT;
     filter_table.static_filters[0].direction_flags = DirectionFlags::PACKET_FLAG_ON_SEND;
 
@@ -98,11 +103,10 @@ fn load_ipv4_dns_filters(ndisapi: &Ndisapi) -> Result<()> {
     // 2. Incoming DNS responses filter: REDIRECT IN UDP packets with source PORT 53
     // Common values
     filter_table.static_filters[1].adapter_handle = 0; // applied to all adapters
-    filter_table.static_filters[1].valid_fields = FilterLayerFlags::NETWORK_LAYER_VALID
-        | FilterLayerFlags::TRANSPORT_LAYER_VALID;
+    filter_table.static_filters[1].valid_fields =
+        FilterLayerFlags::NETWORK_LAYER_VALID | FilterLayerFlags::TRANSPORT_LAYER_VALID;
     filter_table.static_filters[1].filter_action = FILTER_PACKET_REDIRECT;
-    filter_table.static_filters[1].direction_flags =
-        DirectionFlags::PACKET_FLAG_ON_RECEIVE;
+    filter_table.static_filters[1].direction_flags = DirectionFlags::PACKET_FLAG_ON_RECEIVE;
 
     // Network layer filter
     filter_table.static_filters[1].network_filter.union_selector = IPV4;
@@ -145,8 +149,8 @@ fn load_ipv4_dns_filters(ndisapi: &Ndisapi) -> Result<()> {
     filter_table.static_filters[2].adapter_handle = 0; // applied to all adapters
     filter_table.static_filters[2].valid_fields = FilterLayerFlags::empty();
     filter_table.static_filters[2].filter_action = FILTER_PACKET_PASS;
-    filter_table.static_filters[2].direction_flags = DirectionFlags::PACKET_FLAG_ON_RECEIVE
-        | DirectionFlags::PACKET_FLAG_ON_SEND;
+    filter_table.static_filters[2].direction_flags =
+        DirectionFlags::PACKET_FLAG_ON_RECEIVE | DirectionFlags::PACKET_FLAG_ON_SEND;
 
     ndisapi.set_packet_filter_table(&filter_table)
 }
@@ -157,8 +161,8 @@ fn load_http_ipv4v6_filters(ndisapi: &Ndisapi) -> Result<()> {
     // 1. Outgoing HTTP requests filter: REDIRECT OUT TCP packets with destination PORT 80 IPv4
     // Common values
     filter_table.static_filters[0].adapter_handle = 0; // applied to all adapters
-    filter_table.static_filters[0].valid_fields = FilterLayerFlags::NETWORK_LAYER_VALID
-        | FilterLayerFlags::TRANSPORT_LAYER_VALID;
+    filter_table.static_filters[0].valid_fields =
+        FilterLayerFlags::NETWORK_LAYER_VALID | FilterLayerFlags::TRANSPORT_LAYER_VALID;
     filter_table.static_filters[0].filter_action = FILTER_PACKET_REDIRECT;
     filter_table.static_filters[0].direction_flags = DirectionFlags::PACKET_FLAG_ON_SEND;
 
@@ -201,11 +205,10 @@ fn load_http_ipv4v6_filters(ndisapi: &Ndisapi) -> Result<()> {
     // 2. Incoming HTTP responses filter: REDIRECT IN TCP packets with source PORT 80 IPv4
     // Common values
     filter_table.static_filters[1].adapter_handle = 0; // applied to all adapters
-    filter_table.static_filters[1].valid_fields = FilterLayerFlags::NETWORK_LAYER_VALID
-        | FilterLayerFlags::TRANSPORT_LAYER_VALID;
+    filter_table.static_filters[1].valid_fields =
+        FilterLayerFlags::NETWORK_LAYER_VALID | FilterLayerFlags::TRANSPORT_LAYER_VALID;
     filter_table.static_filters[1].filter_action = FILTER_PACKET_REDIRECT;
-    filter_table.static_filters[1].direction_flags =
-        DirectionFlags::PACKET_FLAG_ON_RECEIVE;
+    filter_table.static_filters[1].direction_flags = DirectionFlags::PACKET_FLAG_ON_RECEIVE;
 
     // Network layer filter
     filter_table.static_filters[1].network_filter.union_selector = IPV4;
@@ -246,8 +249,8 @@ fn load_http_ipv4v6_filters(ndisapi: &Ndisapi) -> Result<()> {
     // 3. Outgoing HTTP requests filter: REDIRECT OUT TCP packets with destination PORT 80 IPv6
     // Common values
     filter_table.static_filters[2].adapter_handle = 0; // applied to all adapters
-    filter_table.static_filters[2].valid_fields = FilterLayerFlags::NETWORK_LAYER_VALID
-        | FilterLayerFlags::TRANSPORT_LAYER_VALID;
+    filter_table.static_filters[2].valid_fields =
+        FilterLayerFlags::NETWORK_LAYER_VALID | FilterLayerFlags::TRANSPORT_LAYER_VALID;
     filter_table.static_filters[2].filter_action = FILTER_PACKET_REDIRECT;
     filter_table.static_filters[2].direction_flags = DirectionFlags::PACKET_FLAG_ON_SEND;
 
@@ -290,11 +293,10 @@ fn load_http_ipv4v6_filters(ndisapi: &Ndisapi) -> Result<()> {
     // 4. Incoming HTTP responses filter: REDIRECT IN TCP packets with source PORT 80 IPv6
     // Common values
     filter_table.static_filters[3].adapter_handle = 0; // applied to all adapters
-    filter_table.static_filters[3].valid_fields = FilterLayerFlags::NETWORK_LAYER_VALID
-        | FilterLayerFlags::TRANSPORT_LAYER_VALID;
+    filter_table.static_filters[3].valid_fields =
+        FilterLayerFlags::NETWORK_LAYER_VALID | FilterLayerFlags::TRANSPORT_LAYER_VALID;
     filter_table.static_filters[3].filter_action = FILTER_PACKET_REDIRECT;
-    filter_table.static_filters[3].direction_flags =
-        DirectionFlags::PACKET_FLAG_ON_RECEIVE;
+    filter_table.static_filters[3].direction_flags = DirectionFlags::PACKET_FLAG_ON_RECEIVE;
 
     // Network layer filter
     filter_table.static_filters[3].network_filter.union_selector = IPV6;
@@ -337,8 +339,8 @@ fn load_http_ipv4v6_filters(ndisapi: &Ndisapi) -> Result<()> {
     filter_table.static_filters[4].adapter_handle = 0; // applied to all adapters
     filter_table.static_filters[4].valid_fields = FilterLayerFlags::empty();
     filter_table.static_filters[4].filter_action = FILTER_PACKET_PASS;
-    filter_table.static_filters[4].direction_flags = DirectionFlags::PACKET_FLAG_ON_RECEIVE
-        | DirectionFlags::PACKET_FLAG_ON_SEND;
+    filter_table.static_filters[4].direction_flags =
+        DirectionFlags::PACKET_FLAG_ON_RECEIVE | DirectionFlags::PACKET_FLAG_ON_SEND;
 
     ndisapi.set_packet_filter_table(&filter_table)
 }
@@ -351,8 +353,8 @@ fn load_icmpv4_drop_filters(ndisapi: &Ndisapi) -> Result<()> {
     filter_table.static_filters[0].adapter_handle = 0; // applied to all adapters
     filter_table.static_filters[0].valid_fields = FilterLayerFlags::NETWORK_LAYER_VALID;
     filter_table.static_filters[0].filter_action = FILTER_PACKET_DROP;
-    filter_table.static_filters[0].direction_flags = DirectionFlags::PACKET_FLAG_ON_SEND
-        | DirectionFlags::PACKET_FLAG_ON_RECEIVE;
+    filter_table.static_filters[0].direction_flags =
+        DirectionFlags::PACKET_FLAG_ON_SEND | DirectionFlags::PACKET_FLAG_ON_RECEIVE;
 
     // Network layer filter
     filter_table.static_filters[0].network_filter.union_selector = IPV4;
@@ -377,8 +379,8 @@ fn load_block_ntkernel_https_filters(ndisapi: &Ndisapi) -> Result<()> {
     // 1. Outgoing HTTP requests filter: DROP OUT TCP packets with destination IP 95.179.146.125 PORT 443 (https://www.ntkernel.com)
     // Common values
     filter_table.static_filters[0].adapter_handle = 0; // applied to all adapters
-    filter_table.static_filters[0].valid_fields = FilterLayerFlags::NETWORK_LAYER_VALID
-        | FilterLayerFlags::TRANSPORT_LAYER_VALID;
+    filter_table.static_filters[0].valid_fields =
+        FilterLayerFlags::NETWORK_LAYER_VALID | FilterLayerFlags::TRANSPORT_LAYER_VALID;
     filter_table.static_filters[0].filter_action = FILTER_PACKET_DROP;
     filter_table.static_filters[0].direction_flags = DirectionFlags::PACKET_FLAG_ON_SEND;
 
@@ -410,8 +412,8 @@ fn load_block_ntkernel_https_filters(ndisapi: &Ndisapi) -> Result<()> {
         .network_filter
         .network_layer
         .ipv4
-        .valid_fields = IpV4FilterFlags::IP_V4_FILTER_PROTOCOL
-        | IpV4FilterFlags::IP_V4_FILTER_DEST_ADDRESS;
+        .valid_fields =
+        IpV4FilterFlags::IP_V4_FILTER_PROTOCOL | IpV4FilterFlags::IP_V4_FILTER_DEST_ADDRESS;
     filter_table.static_filters[0]
         .network_filter
         .network_layer
@@ -468,8 +470,8 @@ fn load_block_ntkernel_https_filters(ndisapi: &Ndisapi) -> Result<()> {
     filter_table.static_filters[1].adapter_handle = 0; // applied to all adapters
     filter_table.static_filters[1].valid_fields = FilterLayerFlags::empty();
     filter_table.static_filters[1].filter_action = FILTER_PACKET_PASS;
-    filter_table.static_filters[1].direction_flags = DirectionFlags::PACKET_FLAG_ON_RECEIVE
-        | DirectionFlags::PACKET_FLAG_ON_SEND;
+    filter_table.static_filters[1].direction_flags =
+        DirectionFlags::PACKET_FLAG_ON_RECEIVE | DirectionFlags::PACKET_FLAG_ON_SEND;
 
     ndisapi.set_packet_filter_table(&filter_table)
 }
@@ -483,8 +485,7 @@ fn load_redirect_arp_filters(ndisapi: &Ndisapi) -> Result<()> {
     filter_table.static_filters[0].adapter_handle = 0; // applied to all adapters
     filter_table.static_filters[0].valid_fields = FilterLayerFlags::DATA_LINK_LAYER_VALID;
     filter_table.static_filters[0].filter_action = FILTER_PACKET_REDIRECT;
-    filter_table.static_filters[0].direction_flags =
-        DirectionFlags::PACKET_FLAG_ON_SEND_RECEIVE;
+    filter_table.static_filters[0].direction_flags = DirectionFlags::PACKET_FLAG_ON_SEND_RECEIVE;
     filter_table.static_filters[0]
         .data_link_filter
         .union_selector = ETH_802_3;
@@ -505,8 +506,7 @@ fn load_redirect_arp_filters(ndisapi: &Ndisapi) -> Result<()> {
     filter_table.static_filters[1].adapter_handle = 0; // applied to all adapters
     filter_table.static_filters[1].valid_fields = FilterLayerFlags::DATA_LINK_LAYER_VALID;
     filter_table.static_filters[1].filter_action = FILTER_PACKET_REDIRECT;
-    filter_table.static_filters[1].direction_flags =
-        DirectionFlags::PACKET_FLAG_ON_SEND_RECEIVE;
+    filter_table.static_filters[1].direction_flags = DirectionFlags::PACKET_FLAG_ON_SEND_RECEIVE;
     filter_table.static_filters[1]
         .data_link_filter
         .union_selector = ETH_802_3;
@@ -527,8 +527,8 @@ fn load_redirect_arp_filters(ndisapi: &Ndisapi) -> Result<()> {
     filter_table.static_filters[2].adapter_handle = 0; // applied to all adapters
     filter_table.static_filters[2].valid_fields = FilterLayerFlags::empty();
     filter_table.static_filters[2].filter_action = FILTER_PACKET_PASS;
-    filter_table.static_filters[2].direction_flags = DirectionFlags::PACKET_FLAG_ON_RECEIVE
-        | DirectionFlags::PACKET_FLAG_ON_SEND;
+    filter_table.static_filters[2].direction_flags =
+        DirectionFlags::PACKET_FLAG_ON_RECEIVE | DirectionFlags::PACKET_FLAG_ON_SEND;
 
     ndisapi.set_packet_filter_table(&filter_table)
 }
@@ -540,8 +540,8 @@ fn load_redirect_icmp_req_filters(ndisapi: &Ndisapi) -> Result<()> {
     // 1. Redirects all ARP packets to be processes by user mode application
     // Common values
     filter_table.static_filters[0].adapter_handle = 0; // applied to all adapters
-    filter_table.static_filters[0].valid_fields = FilterLayerFlags::NETWORK_LAYER_VALID
-        | FilterLayerFlags::TRANSPORT_LAYER_VALID;
+    filter_table.static_filters[0].valid_fields =
+        FilterLayerFlags::NETWORK_LAYER_VALID | FilterLayerFlags::TRANSPORT_LAYER_VALID;
     filter_table.static_filters[0].filter_action = FILTER_PACKET_REDIRECT;
     filter_table.static_filters[0].direction_flags = DirectionFlags::PACKET_FLAG_ON_SEND;
 
@@ -591,8 +591,8 @@ fn load_redirect_icmp_req_filters(ndisapi: &Ndisapi) -> Result<()> {
     filter_table.static_filters[1].adapter_handle = 0; // applied to all adapters
     filter_table.static_filters[1].valid_fields = FilterLayerFlags::empty();
     filter_table.static_filters[1].filter_action = FILTER_PACKET_PASS;
-    filter_table.static_filters[1].direction_flags = DirectionFlags::PACKET_FLAG_ON_RECEIVE
-        | DirectionFlags::PACKET_FLAG_ON_SEND;
+    filter_table.static_filters[1].direction_flags =
+        DirectionFlags::PACKET_FLAG_ON_RECEIVE | DirectionFlags::PACKET_FLAG_ON_SEND;
 
     ndisapi.set_packet_filter_table(&filter_table)
 }
@@ -605,8 +605,8 @@ fn main() -> Result<()> {
 
     interface_index -= 1;
 
-    let driver = Ndisapi::new("NDISRD")
-        .expect("WinpkFilter driver is not installed or failed to load!");
+    let driver =
+        Ndisapi::new("NDISRD").expect("WinpkFilter driver is not installed or failed to load!");
 
     println!(
         "Detected Windows Packet Filter version {}",

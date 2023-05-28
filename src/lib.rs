@@ -10,11 +10,10 @@
 //!
 //! The net module contains a MacAddress struct for representing and manipulating MAC addresses.
 
-#[cfg(feature = "async")]
-mod async_ndisapi;
+mod async_api;
 mod driver;
 mod ndisapi;
-mod net;
+mod netlib;
 
 pub use crate::ndisapi::{
     DirectionFlags, Eth802_3FilterFlags, EthMRequest, EthPacket, EthRequest, FastIoSection,
@@ -26,7 +25,11 @@ pub use crate::ndisapi::{
     IP_RANGE_V6_TYPE, IP_SUBNET_V4_TYPE, IP_SUBNET_V6_TYPE, TCPUDP,
 };
 
-#[cfg(feature = "async")]
-pub use crate::async_ndisapi::AsyncNdisapiAdapter;
+pub use crate::async_api::AsyncNdisapiAdapter;
 
-pub use net::MacAddress;
+pub use crate::netlib::ip_helper::{
+    guid_wrapper::GuidWrapper, if_luid::IfLuid, ip_gateway_info::IpGatewayInfo,
+    network_adapter_info::IphlpNetworkAdapterInfo, sockaddr_storage::SockAddrStorage,
+};
+
+pub use netlib::net::MacAddress;

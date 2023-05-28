@@ -194,11 +194,13 @@ pub struct EthPacket<'a> {
 
 /// Implements the `Into` trait for `EthPacket`.
 ///
-/// This implementation allows for a straightforward conversion from an `EthPacket` into an `Option<&'a mut IntermediateBuffer>`.
-/// This conversion is useful when you want to manipulate the buffer of a packet directly.
-impl<'a> Into<Option<&'a mut IntermediateBuffer>> for EthPacket<'a> {
-    fn into(self) -> Option<&'a mut IntermediateBuffer> {
-        self.buffer
+/// The purpose of this implementation is to facilitate the conversion of an `EthPacket` into an `Option<&'a mut IntermediateBuffer>`.
+///
+/// The conversion is valuable when there is a need to directly manipulate the buffer of a packet. By implementing `Into` for `EthPacket`,
+/// we provide a convenient and idiomatic way to perform this transformation.
+impl<'a> From<EthPacket<'a>> for Option<&'a mut IntermediateBuffer> {
+    fn from(val: EthPacket<'a>) -> Self {
+        val.buffer
     }
 }
 

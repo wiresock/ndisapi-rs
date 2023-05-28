@@ -5,7 +5,9 @@
 /// the network traffic.
 use clap::Parser;
 use etherparse::{InternetSlice::*, LinkSlice::*, TransportSlice::*, *};
-use ndisapi_rs::{Ndisapi, FilterFlags, IntermediateBuffer, EthRequest, DirectionFlags, MacAddress};
+use ndisapi_rs::{
+    DirectionFlags, EthRequest, FilterFlags, IntermediateBuffer, MacAddress, Ndisapi,
+};
 use windows::{
     core::Result,
     Win32::Foundation::{CloseHandle, HANDLE},
@@ -33,8 +35,8 @@ fn main() -> Result<()> {
     interface_index -= 1;
 
     // Create new NDISAPI object using the WinpkFilter driver
-    let driver = Ndisapi::new("NDISRD")
-        .expect("WinpkFilter driver is not installed or failed to load!");
+    let driver =
+        Ndisapi::new("NDISRD").expect("WinpkFilter driver is not installed or failed to load!");
 
     // Print the version of Windows Packet Filter detected by the driver API
     println!(

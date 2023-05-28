@@ -189,7 +189,7 @@ impl AsyncNdisapiAdapter {
     /// # Returns
     ///
     /// Returns `Ok(usize)` if packets are successfully read from the network adapter, where `usize` is the number of packets read.
-    pub async fn read_packets<'a, const N: usize, I>(&mut self, mut packets: I) -> Result<usize>
+    pub async fn read_packets<'a, const N: usize, I>(&mut self, packets: I) -> Result<usize>
     where
         I: Iterator<Item = &'a mut IntermediateBuffer>,
     {
@@ -199,7 +199,7 @@ impl AsyncNdisapiAdapter {
         let mut request = ndisapi::EthMRequest::<N>::new(self.adapter_handle);
 
         // Initialize the read EthMRequest object.
-        while let Some(ib) = packets.next() {
+        for ib in packets {
             request.push(ib)?;
         }
 
@@ -292,10 +292,7 @@ impl AsyncNdisapiAdapter {
     /// # Returns
     ///
     /// On successful operation, this function returns an `Ok(usize)` that represents the number of packets successfully sent to the network adapter. If the operation fails, an error is returned.
-    pub fn send_packets_to_adapter<'a, const N: usize, I>(
-        &mut self,
-        mut packets: I,
-    ) -> Result<usize>
+    pub fn send_packets_to_adapter<'a, const N: usize, I>(&mut self, packets: I) -> Result<usize>
     where
         I: Iterator<Item = &'a mut IntermediateBuffer>,
     {
@@ -303,7 +300,7 @@ impl AsyncNdisapiAdapter {
         let mut request = ndisapi::EthMRequest::<N>::new(self.adapter_handle);
 
         // Initialize the EthMRequest object.
-        while let Some(ib) = packets.next() {
+        for ib in packets {
             request.push(ib)?;
         }
 
@@ -373,7 +370,7 @@ impl AsyncNdisapiAdapter {
     /// # Returns
     ///
     /// On successful operation, this function returns `Ok(usize)`, where `usize` is the number of packets sent. If the operation fails, an error is returned.
-    pub fn send_packets_to_mstcp<'a, const N: usize, I>(&mut self, mut packets: I) -> Result<usize>
+    pub fn send_packets_to_mstcp<'a, const N: usize, I>(&mut self, packets: I) -> Result<usize>
     where
         I: Iterator<Item = &'a mut IntermediateBuffer>,
     {
@@ -381,7 +378,7 @@ impl AsyncNdisapiAdapter {
         let mut request = ndisapi::EthMRequest::<N>::new(self.adapter_handle);
 
         // Initialize the EthMRequest object.
-        while let Some(ib) = packets.next() {
+        for ib in packets {
             request.push(ib)?;
         }
 
