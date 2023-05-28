@@ -2,7 +2,7 @@
 //! on Windows operating systems. The crate contains the following main modules: driver, ndisapi, async_api, and main.
 //!
 //! ## driver
-//! The driver module provides low-level functionality for interacting with Windows device drivers, and is used
+//! The driver module provides low-level functionality for interacting with Windows Packet Filter driver, and is used
 //! by the ndisapi module to capture and filter network packets.
 //!
 //! ## ndisapi
