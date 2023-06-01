@@ -111,8 +111,7 @@ fn main() -> Result<()> {
             packets_number = packets_number.saturating_sub(packets_read);
 
             // Process each packet.
-            for i in 0..packets_read {
-                let packet = to_read.take_packet(i).unwrap();
+            for (i, packet) in to_read.drain_success_packets().enumerate() {
                 let direction_flags = packet.get_device_flags();
 
                 // Print packet direction and remaining packets.
@@ -141,18 +140,13 @@ fn main() -> Result<()> {
             }
 
             // Re-inject packets back into the network stack
-            let to_adapter_packets_num = to_adapter.get_packet_number();
             if to_adapter.get_packet_number() > 0 {
                 match driver.send_packets_to_adapter::<PACKET_NUMBER>(&to_adapter) {
                     Ok(_) => {}
                     Err(err) => println!("Error sending packet to adapter. Error code = {err}"),
                 }
-                for i in 0..to_adapter.get_packet_number() {
-                    to_read
-                        .put_packet(i as usize, to_adapter.take_packet(i as usize).unwrap())
-                        .unwrap();
-                }
-                to_adapter.reset();
+                
+                to_read.consume(&mut to_adapter).unwrap();
             }
 
             if !to_mstcp.get_packet_number() > 0 {
@@ -160,15 +154,7 @@ fn main() -> Result<()> {
                     Ok(_) => {}
                     Err(err) => println!("Error sending packet to mstcp. Error code = {err}"),
                 };
-                for i in 0..to_mstcp.get_packet_number() {
-                    to_read
-                        .put_packet(
-                            (to_adapter_packets_num + i) as usize,
-                            to_mstcp.take_packet(i as usize).unwrap(),
-                        )
-                        .unwrap();
-                }
-                to_mstcp.reset();
+                to_read.consume(&mut to_mstcp).unwrap();
             }
 
             if packets_number == 0 {
