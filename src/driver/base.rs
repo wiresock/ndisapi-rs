@@ -13,7 +13,7 @@
 use std::mem::size_of;
 use windows::{
     core::Result,
-    Win32::Foundation::{ERROR_INVALID_PARAMETER, HANDLE},
+    Win32::Foundation::{ERROR_INVALID_PARAMETER, HANDLE, ERROR_BUFFER_OVERFLOW},
 };
 
 use super::constants::*;
@@ -297,7 +297,7 @@ impl<'a, const N: usize> EthMRequest<'a, N> {
     /// Takes the `IntermediateBuffer` from the `EthPacket` at the specified index, replacing it with `None`.
     ///
     /// This is useful when you want to use the packet's buffer elsewhere, while ensuring that the `EthMRequest` no longer has access to it.
-    pub fn take_packet(&mut self, index: usize) -> Option<&'a mut IntermediateBuffer> {
+    fn take_packet(&mut self, index: usize) -> Option<&'a mut IntermediateBuffer> {
         if index < self.packet_number as usize {
             self.packets[index].buffer.take()
         } else {
@@ -305,10 +305,28 @@ impl<'a, const N: usize> EthMRequest<'a, N> {
         }
     }
 
+    /// Returns an iterator that yields `Some(IntermediateBuffer)` for each non-empty buffer in `packets`, in order,
+    /// up to `packet_success`.
+    ///
+    /// Once called, this method "drains" the non-empty buffers from `packets`, leaving them empty.
+    pub fn drain_success_packets(&mut self) -> impl Iterator<Item = &'a mut IntermediateBuffer> + '_ {
+        self.packets
+            .iter_mut()
+            .take(self.packet_success as usize)
+            .filter_map(|packet| {
+                if packet.buffer.is_some() {
+                    self.packet_number -= 1;
+                    packet.buffer.take()
+                } else {
+                    None
+                }
+            })
+    }
+
     /// Sets the `IntermediateBuffer` for the `EthPacket` at the specified index.
     ///
     /// This method allows you to associate a new buffer with the `EthPacket` at the given index.
-    pub fn put_packet(&mut self, index: usize, buffer: &'a mut IntermediateBuffer) -> Result<()> {
+    fn set_packet(&mut self, index: usize, buffer: &'a mut IntermediateBuffer) -> Result<()> {
         if index < self.packet_number as usize {
             self.packets[index].buffer = Some(buffer);
             Ok(())
@@ -324,18 +342,15 @@ impl<'a, const N: usize> EthMRequest<'a, N> {
         self.packet_number
     }
 
-    /// Sets the number of packets in the `packets` array.
+    /// Erases all `EthPacket` instances within the `packets` array and releases all references.
     ///
-    /// This allows you to manually set the count of packets in the request.
-    pub fn set_packet_number(&mut self, number: u32) {
-        self.packet_number = number;
-    }
-
-    /// Resets the packet number to 0.
-    ///
-    /// This effectively empties the request of packets.
+    /// After this method is called, all `EthPacket` instances within the `packets` array will be empty (i.e., their `buffer` fields will be `None`), and the packet number will be reset to 0.
     pub fn reset(&mut self) {
-        self.set_packet_number(0);
+        for packet in self.packets.iter_mut() {
+            packet.buffer = None;
+        }
+        self.packet_number = 0;
+        self.packet_success = 0;
     }
 
     /// Returns the number of successfully processed packets
@@ -359,17 +374,58 @@ impl<'a, const N: usize> EthMRequest<'a, N> {
     /// # Returns
     ///
     /// * `Ok(())` if the buffer was successfully added as a packet.
-    /// * `Err(ERROR_INVALID_PARAMETER.into())` if the `packets` array is full.
+    /// * `Err(ERROR_BUFFER_OVERFLOW.into())` if the `packets` array is full.
     pub fn push(&mut self, packet: &'a mut IntermediateBuffer) -> Result<()> {
         if (self.packet_number as usize) < N {
-            self.packets[self.packet_number as usize] = EthPacket {
-                buffer: Some(packet),
-            };
-            self.packet_number += 1;
-            Ok(())
+            if let Some(index) = self.first_empty_packet() {
+                self.packets[index] = EthPacket {
+                    buffer: Some(packet),
+                };
+                self.packet_number += 1;
+                Ok(())
+            } else {
+                Err(ERROR_BUFFER_OVERFLOW.into())
+            }
         } else {
-            Err(ERROR_INVALID_PARAMETER.into())
+            Err(ERROR_BUFFER_OVERFLOW.into())
         }
+    }
+
+    /// Returns the index of the first `EthPacket` which contains `None`.
+    ///
+    /// # Returns
+    /// * An `Option<usize>` representing the index of the first empty `EthPacket`.
+    /// If no empty `EthPacket` is found, returns `None`.
+    fn first_empty_packet(&self) -> Option<usize> {
+        self.packets.iter().position(|packet| packet.buffer.is_none())
+    }
+
+    /// Consumes another `EthMRequest`, moving its packets into `self`.
+    ///
+    /// # Arguments
+    /// * `other` - The other `EthMRequest` to consume.
+    ///
+    /// # Returns
+    /// * Result indicating success or failure.
+    pub fn consume(&mut self, other: &mut EthMRequest<'a, N>) -> Result<()> {
+        let available_space = N - self.packet_number as usize;
+        if available_space < other.packet_number as usize {
+            return Err(ERROR_BUFFER_OVERFLOW.into());
+        }
+        
+        for index in 0..other.packet_number as usize {
+            if let Some(buffer) = other.take_packet(index) {
+                if let Some(empty_slot) = self.first_empty_packet() {
+                    self.set_packet(empty_slot, buffer)?;
+                    self.packet_number += 1;
+                } else {
+                    return Err(ERROR_BUFFER_OVERFLOW.into());
+                }
+            }
+        }
+        other.packet_number = 0;
+        
+        Ok(())
     }
 }
 
