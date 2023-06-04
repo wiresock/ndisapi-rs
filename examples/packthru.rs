@@ -81,16 +81,12 @@ fn main() -> Result<()> {
     let mut ibs: Vec<IntermediateBuffer> = vec![Default::default(); PACKET_NUMBER];
 
     // Initialize containers to read/write IntermediateBuffers from/to the driver.
-    let mut to_read = EthMRequest::new(adapters[interface_index].get_handle());
+    let mut to_read =
+        EthMRequest::from_iter(adapters[interface_index].get_handle(), ibs.iter_mut());
     let mut to_mstcp: EthMRequest<PACKET_NUMBER> =
         EthMRequest::new(adapters[interface_index].get_handle());
     let mut to_adapter: EthMRequest<PACKET_NUMBER> =
         EthMRequest::new(adapters[interface_index].get_handle());
-
-    // Initialize the read EthMRequest object.
-    for ib in &mut ibs {
-        to_read.push(ib)?;
-    }
 
     // Main loop: Process packets until the specified number of packets is reached.
     while packets_number > 0 {
@@ -145,8 +141,12 @@ fn main() -> Result<()> {
                     Ok(_) => {}
                     Err(err) => println!("Error sending packet to adapter. Error code = {err}"),
                 }
-                
-                to_read.consume(&mut to_adapter).unwrap();
+
+                //to_read.consume(&mut to_adapter).unwrap();
+                match to_read.consume(&mut to_adapter) {
+                    Ok(_) => {}
+                    Err(err) => println!("Error consuming outgoing packets. Error code = {err}"),
+                }
             }
 
             if !to_mstcp.get_packet_number() > 0 {
@@ -154,7 +154,11 @@ fn main() -> Result<()> {
                     Ok(_) => {}
                     Err(err) => println!("Error sending packet to mstcp. Error code = {err}"),
                 };
-                to_read.consume(&mut to_mstcp).unwrap();
+                //to_read.consume(&mut to_mstcp).unwrap();
+                match to_read.consume(&mut to_mstcp) {
+                    Ok(_) => {}
+                    Err(err) => println!("Error consuming incoming packets. Error code = {err}"),
+                }
             }
 
             if packets_number == 0 {

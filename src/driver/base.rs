@@ -13,7 +13,7 @@
 use std::mem::size_of;
 use windows::{
     core::Result,
-    Win32::Foundation::{ERROR_INVALID_PARAMETER, HANDLE, ERROR_BUFFER_OVERFLOW},
+    Win32::Foundation::{ERROR_BUFFER_OVERFLOW, ERROR_INVALID_PARAMETER, HANDLE},
 };
 
 use super::constants::*;
@@ -294,11 +294,44 @@ impl<'a, const N: usize> EthMRequest<'a, N> {
         }
     }
 
+    /// Creates a new `EthMRequest` from an iterator over `&mut IntermediateBuffer`.
+    ///
+    /// This constructor will attempt to consume up to `N` items from the iterator to initialize the `packets` array.
+    /// If the iterator contains fewer than `N` items, the remaining entries in the `packets` array will be left as `None`.
+    ///
+    /// # Arguments
+    ///
+    /// * `adapter_handle`: A handle to the network adapter associated with this request.
+    /// * `iter`: An iterator over mutable references to `IntermediateBuffer`.
+    ///
+    /// # Returns
+    ///
+    /// A new `EthMRequest`.
+    pub fn from_iter(
+        adapter_handle: HANDLE,
+        iter: impl Iterator<Item = &'a mut IntermediateBuffer>,
+    ) -> Self {
+        let mut packets = [(); N].map(|_| EthPacket { buffer: None });
+        let mut packet_number = 0;
+
+        for (buffer, packet) in iter.zip(packets.iter_mut()) {
+            packet.buffer = Some(buffer);
+            packet_number += 1;
+        }
+
+        Self {
+            adapter_handle,
+            packet_number: packet_number,
+            packet_success: 0,
+            packets,
+        }
+    }
+
     /// Takes the `IntermediateBuffer` from the `EthPacket` at the specified index, replacing it with `None`.
     ///
     /// This is useful when you want to use the packet's buffer elsewhere, while ensuring that the `EthMRequest` no longer has access to it.
     fn take_packet(&mut self, index: usize) -> Option<&'a mut IntermediateBuffer> {
-        if index < self.packet_number as usize {
+        if index < N as usize {
             self.packets[index].buffer.take()
         } else {
             None
@@ -309,7 +342,9 @@ impl<'a, const N: usize> EthMRequest<'a, N> {
     /// up to `packet_success`.
     ///
     /// Once called, this method "drains" the non-empty buffers from `packets`, leaving them empty.
-    pub fn drain_success_packets(&mut self) -> impl Iterator<Item = &'a mut IntermediateBuffer> + '_ {
+    pub fn drain_success_packets(
+        &mut self,
+    ) -> impl Iterator<Item = &'a mut IntermediateBuffer> + '_ {
         self.packets
             .iter_mut()
             .take(self.packet_success as usize)
@@ -327,7 +362,7 @@ impl<'a, const N: usize> EthMRequest<'a, N> {
     ///
     /// This method allows you to associate a new buffer with the `EthPacket` at the given index.
     fn set_packet(&mut self, index: usize, buffer: &'a mut IntermediateBuffer) -> Result<()> {
-        if index < self.packet_number as usize {
+        if index < N as usize {
             self.packets[index].buffer = Some(buffer);
             Ok(())
         } else {
@@ -397,7 +432,9 @@ impl<'a, const N: usize> EthMRequest<'a, N> {
     /// * An `Option<usize>` representing the index of the first empty `EthPacket`.
     /// If no empty `EthPacket` is found, returns `None`.
     fn first_empty_packet(&self) -> Option<usize> {
-        self.packets.iter().position(|packet| packet.buffer.is_none())
+        self.packets
+            .iter()
+            .position(|packet| packet.buffer.is_none())
     }
 
     /// Consumes another `EthMRequest`, moving its packets into `self`.
@@ -412,7 +449,7 @@ impl<'a, const N: usize> EthMRequest<'a, N> {
         if available_space < other.packet_number as usize {
             return Err(ERROR_BUFFER_OVERFLOW.into());
         }
-        
+
         for index in 0..other.packet_number as usize {
             if let Some(buffer) = other.take_packet(index) {
                 if let Some(empty_slot) = self.first_empty_packet() {
@@ -424,7 +461,7 @@ impl<'a, const N: usize> EthMRequest<'a, N> {
             }
         }
         other.packet_number = 0;
-        
+
         Ok(())
     }
 }
