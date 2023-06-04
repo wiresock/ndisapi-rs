@@ -196,12 +196,7 @@ impl AsyncNdisapiAdapter {
         let driver = self.driver.clone();
 
         // Initialize EthMPacket to pass to driver API.
-        let mut request = ndisapi::EthMRequest::<N>::new(self.adapter_handle);
-
-        // Initialize the read EthMRequest object.
-        for ib in packets {
-            request.push(ib)?;
-        }
+        let mut request = ndisapi::EthMRequest::<N>::from_iter(self.adapter_handle, packets);
 
         // first try to read packets
         if driver.read_packets(&mut request).is_ok() {
@@ -297,12 +292,7 @@ impl AsyncNdisapiAdapter {
         I: Iterator<Item = &'a mut IntermediateBuffer>,
     {
         // Initialize EthMPacket to pass to driver API.
-        let mut request = ndisapi::EthMRequest::<N>::new(self.adapter_handle);
-
-        // Initialize the EthMRequest object.
-        for ib in packets {
-            request.push(ib)?;
-        }
+        let request = ndisapi::EthMRequest::<N>::from_iter(self.adapter_handle, packets);
 
         // Try to send packets to the network adapter.
         if self.driver.send_packets_to_adapter(&request).is_ok() {
@@ -375,12 +365,7 @@ impl AsyncNdisapiAdapter {
         I: Iterator<Item = &'a mut IntermediateBuffer>,
     {
         // Initialize EthMPacket to pass to driver API.
-        let mut request = ndisapi::EthMRequest::<N>::new(self.adapter_handle);
-
-        // Initialize the EthMRequest object.
-        for ib in packets {
-            request.push(ib)?;
-        }
+        let request = ndisapi::EthMRequest::<N>::from_iter(self.adapter_handle, packets);
 
         // Try to send packets upwards the network stack.
         if self.driver.send_packets_to_mstcp(&request).is_ok() {
