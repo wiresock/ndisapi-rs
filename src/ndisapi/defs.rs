@@ -8,7 +8,7 @@ use std::fmt::{Display, Formatter, Result};
 use windows::Win32::Foundation::HANDLE;
 
 /// Represents the version information for the NDIS filter driver.
-#[derive(PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Version {
     pub major: u32,
     pub minor: u32,
@@ -31,6 +31,7 @@ impl Display for Version {
 }
 
 /// Represents information about a network adapter.
+#[derive(Debug)]
 pub struct NetworkAdapterInfo {
     name: String,
     handle: HANDLE,
