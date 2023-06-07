@@ -166,6 +166,22 @@ impl IntermediateBuffer {
     pub fn set_length(&mut self, length: u32) {
         self.length = length
     }
+
+    /// Returns a reference to the data stored in the buffer.
+    ///
+    /// This method returns a reference to the data stored in the buffer as a slice of bytes.
+    /// The length of the slice is determined by the `length` field of the `buffer` struct.
+    pub fn get_data(&self) -> &[u8] {
+        &self.buffer.0[..self.length as usize]
+    }
+
+    /// Returns a mutable reference to the data stored in the buffer.
+    ///
+    /// This method returns a mutable reference to the data stored in the buffer as a slice of bytes.
+    /// The length of the slice is determined by the `length` field of the `buffer` struct.
+    pub fn get_data_mut(&mut self) -> &mut [u8] {
+        &mut self.buffer.0[..self.length as usize]
+    }
 }
 
 /// This structure is used to define the mode of an adapter with a specified handle and filter flags.
@@ -321,7 +337,7 @@ impl<'a, const N: usize> EthMRequest<'a, N> {
 
         Self {
             adapter_handle,
-            packet_number: packet_number,
+            packet_number,
             packet_success: 0,
             packets,
         }
@@ -331,7 +347,7 @@ impl<'a, const N: usize> EthMRequest<'a, N> {
     ///
     /// This is useful when you want to use the packet's buffer elsewhere, while ensuring that the `EthMRequest` no longer has access to it.
     fn take_packet(&mut self, index: usize) -> Option<&'a mut IntermediateBuffer> {
-        if index < N as usize {
+        if index < N {
             self.packets[index].buffer.take()
         } else {
             None
@@ -362,7 +378,7 @@ impl<'a, const N: usize> EthMRequest<'a, N> {
     ///
     /// This method allows you to associate a new buffer with the `EthPacket` at the given index.
     fn set_packet(&mut self, index: usize, buffer: &'a mut IntermediateBuffer) -> Result<()> {
-        if index < N as usize {
+        if index < N {
             self.packets[index].buffer = Some(buffer);
             Ok(())
         } else {

@@ -1,6 +1,6 @@
 [package]
 name = "ndisapi-rs"
-version = "0.4.4"
+version = "0.4.5"
 edition = "2021"
 authors = ["Vadim Smirnov <vadim@ntkernel.com>"]
 description = "Rust crate for interacting with the Windows Packet Filter driver (NDISAPI)"
@@ -33,9 +33,9 @@ features = [
     ]
 
 [dev-dependencies]
-etherparse = "0.13"
 clap = {version = "4.0.32", features = ["derive"]}
 ctrlc = "3.2.4"
 futures = "0.3.28"
-tokio = { version = "1.28.1", features = ["full"] }
+tokio = { version = "1.28.2", features = ["full"] }
+smoltcp = "0.9.1"
 
