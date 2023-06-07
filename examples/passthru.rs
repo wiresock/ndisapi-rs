@@ -4,9 +4,10 @@
 /// Upon receiving a packet, its content is decoded and displayed on the console screen, providing a real-time view of
 /// the network traffic.
 use clap::Parser;
-use etherparse::{InternetSlice::*, LinkSlice::*, TransportSlice::*, *};
-use ndisapi_rs::{
-    DirectionFlags, EthRequest, FilterFlags, IntermediateBuffer, MacAddress, Ndisapi,
+use ndisapi_rs::{DirectionFlags, EthRequest, FilterFlags, IntermediateBuffer, Ndisapi};
+use smoltcp::wire::{
+    ArpPacket, EthernetFrame, EthernetProtocol, Icmpv4Packet, Icmpv6Packet, IpProtocol, Ipv4Packet,
+    Ipv6Packet, TcpPacket, UdpPacket,
 };
 use windows::{
     core::Result,
@@ -170,68 +171,88 @@ fn main() -> Result<()> {
 /// print_packet_info(&mut packet);
 /// ```
 fn print_packet_info(packet: &mut IntermediateBuffer) {
-    // Attempt to create a SlicedPacket from the Ethernet frame.
-    match SlicedPacket::from_ethernet(&packet.buffer.0) {
-        // If there's an error, print it.
-        Err(value) => println!("Err {value:?}"),
-
-        // If successful, proceed with printing packet information.
-        Ok(value) => {
-            // Print Ethernet information if available.
-            if let Some(Ethernet2(value)) = value.link {
-                println!(
-                    " Ethernet {} => {}",
-                    MacAddress::from_slice(&value.source()[..]).unwrap(),
-                    MacAddress::from_slice(&value.destination()[..]).unwrap(),
-                );
-            }
-
-            // Print IP information if available.
-            match value.ip {
-                Some(Ipv4(value, extensions)) => {
+    let mut eth_hdr = EthernetFrame::new_unchecked(packet.get_data_mut());
+    match eth_hdr.ethertype() {
+        EthernetProtocol::Ipv4 => {
+            let mut ipv4_packet = Ipv4Packet::new_unchecked(eth_hdr.payload_mut());
+            println!(
+                "  Ipv4 {:?} => {:?}",
+                ipv4_packet.src_addr(),
+                ipv4_packet.dst_addr()
+            );
+            match ipv4_packet.next_header() {
+                IpProtocol::Icmp => {
+                    let icmp_packet = Icmpv4Packet::new_unchecked(ipv4_packet.payload_mut());
                     println!(
-                        "  Ipv4 {:?} => {:?}",
-                        value.source_addr(),
-                        value.destination_addr()
+                        "ICMPv4: Type: {:?} Code: {:?}",
+                        icmp_packet.msg_type(),
+                        icmp_packet.msg_code()
                     );
-                    if !extensions.is_empty() {
-                        println!("    {extensions:?}");
-                    }
                 }
-                Some(Ipv6(value, extensions)) => {
-                    println!(
-                        "  Ipv6 {:?} => {:?}",
-                        value.source_addr(),
-                        value.destination_addr()
-                    );
-                    if !extensions.is_empty() {
-                        println!("    {extensions:?}");
-                    }
-                }
-                None => {}
-            }
-
-            // Print transport layer information if available.
-            match value.transport {
-                Some(Icmpv4(value)) => println!(" Icmpv4 {value:?}"),
-                Some(Icmpv6(value)) => println!(" Icmpv6 {value:?}"),
-                Some(Udp(value)) => println!(
-                    "   UDP {:?} -> {:?}",
-                    value.source_port(),
-                    value.destination_port()
-                ),
-                Some(Tcp(value)) => {
+                IpProtocol::Tcp => {
+                    let tcp_packet = TcpPacket::new_unchecked(ipv4_packet.payload_mut());
                     println!(
                         "   TCP {:?} -> {:?}",
-                        value.source_port(),
-                        value.destination_port()
+                        tcp_packet.src_port(),
+                        tcp_packet.dst_port()
                     );
                 }
-                Some(Unknown(ip_protocol)) => {
-                    println!("  Unknown Protocol (ip protocol number {ip_protocol:?})")
+                IpProtocol::Udp => {
+                    let udp_packet = UdpPacket::new_unchecked(ipv4_packet.payload_mut());
+                    println!(
+                        "   UDP {:?} -> {:?}",
+                        udp_packet.src_port(),
+                        udp_packet.dst_port()
+                    );
                 }
-                None => {}
+                _ => {
+                    println!("Unknown IPv4 packet: {:?}", ipv4_packet);
+                }
             }
+        }
+        EthernetProtocol::Ipv6 => {
+            let mut ipv6_packet = Ipv6Packet::new_unchecked(eth_hdr.payload_mut());
+            println!(
+                "  Ipv6 {:?} => {:?}",
+                ipv6_packet.src_addr(),
+                ipv6_packet.dst_addr()
+            );
+            match ipv6_packet.next_header() {
+                IpProtocol::Icmpv6 => {
+                    let icmpv6_packet = Icmpv6Packet::new_unchecked(ipv6_packet.payload_mut());
+                    println!(
+                        "ICMPv6 packet: Type: {:?} Code: {:?}",
+                        icmpv6_packet.msg_type(),
+                        icmpv6_packet.msg_code()
+                    );
+                }
+                IpProtocol::Tcp => {
+                    let tcp_packet = TcpPacket::new_unchecked(ipv6_packet.payload_mut());
+                    println!(
+                        "   TCP {:?} -> {:?}",
+                        tcp_packet.src_port(),
+                        tcp_packet.dst_port()
+                    );
+                }
+                IpProtocol::Udp => {
+                    let udp_packet = UdpPacket::new_unchecked(ipv6_packet.payload_mut());
+                    println!(
+                        "   UDP {:?} -> {:?}",
+                        udp_packet.src_port(),
+                        udp_packet.dst_port()
+                    );
+                }
+                _ => {
+                    println!("Unknown IPv6 packet: {:?}", ipv6_packet);
+                }
+            }
+        }
+        EthernetProtocol::Arp => {
+            let arp_packet = ArpPacket::new_unchecked(eth_hdr.payload_mut());
+            println!("ARP packet: {:?}", arp_packet);
+        }
+        EthernetProtocol::Unknown(_) => {
+            println!("Unknown Ethernet packet: {:?}", eth_hdr);
         }
     }
 }

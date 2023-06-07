@@ -28,7 +28,7 @@ Add the following to your `Cargo.toml` file:
 
 ```toml
 [dependencies]
-ndisapi-rs = "0.4.4"
+ndisapi-rs = "0.4.5"
 ```
 
 ## Usage
@@ -68,7 +68,7 @@ Here is an example of how to run the `listadapters` example:
 
 ```bash
 PS D:\firezone\ndisapi> cargo run --example listadapters
-   Compiling ndisapi-rs v0.4.0 (D:\firezone\ndisapi)
+   Compiling ndisapi-rs v0.4.5 (D:\firezone\ndisapi)
     Finished dev [unoptimized + debuginfo] target(s) in 3.22s
      Running `target\debug\examples\listadapters.exe`
 Detected Windows Packet Filter version 3.4.3
@@ -105,31 +105,75 @@ Following is the demonstration of the async-packthru example. For this scenario,
 
 ```bash
 PS D:\firezone\ndisapi> cargo run --example async-packthru -- --interface-index 12
-   Compiling ndisapi-rs v0.4.0 (D:\firezone\ndisapi)
-    Finished dev [unoptimized + debuginfo] target(s) in 4.23s
+    Finished dev [unoptimized + debuginfo] target(s) in 0.11s
      Running `target\debug\examples\async-packthru.exe --interface-index 12`
 Detected Windows Packet Filter version 3.4.3
 Using interface \DEVICE\{05F9267C-C548-4822-8535-9A57F1A99DB7}
 Press ENTER to exit
 =======================================================================================================
 
-Interface --> MSTCP (110 bytes)
+Interface --> MSTCP (93 bytes)
 
- Ethernet 50:FF:20:90:2F:15 => 18:47:3D:60:26:9D
-  Ipv4 35.74.10.178 => 192.168.3.126
-   TCP 443 -> 56028
+  Ipv4 Address([142, 250, 102, 108]) => Address([192, 168, 3, 126])
+   TCP 993 -> 54163
 =======================================================================================================
 
-Interface --> MSTCP (42 bytes)
+MSTCP --> Interface (89 bytes)
 
- Ethernet 50:FF:20:90:2F:15 => FF:FF:FF:FF:FF:FF
+  Ipv4 Address([192, 168, 3, 126]) => Address([142, 250, 102, 108])
+   TCP 54163 -> 993
 =======================================================================================================
 
-MSTCP --> Interface (54 bytes)
+Interface --> MSTCP (60 bytes)
 
- Ethernet 18:47:3D:60:26:9D => 50:FF:20:90:2F:15
-  Ipv4 192.168.3.126 => 35.74.10.178
-   TCP 56028 -> 443
+  Ipv4 Address([142, 250, 102, 108]) => Address([192, 168, 3, 126])
+   TCP 993 -> 54163
+=======================================================================================================
+
+Interface --> MSTCP (202 bytes)
+
+  Ipv4 Address([192, 168, 3, 105]) => Address([224, 0, 0, 251])
+   UDP 5353 -> 5353
+
+Interface --> MSTCP (222 bytes)
+
+  Ipv6 Address([254, 128, 0, 0, 0, 0, 0, 0, 18, 44, 107, 255, 254, 84, 37, 126]) => Address([255, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 251])
+   UDP 5353 -> 5353
+=======================================================================================================
+
+Interface --> MSTCP (118 bytes)
+
+  Ipv4 Address([142, 250, 102, 108]) => Address([192, 168, 3, 126])
+   TCP 993 -> 54163
+=======================================================================================================
+
+MSTCP --> Interface (115 bytes)
+
+  Ipv4 Address([192, 168, 3, 126]) => Address([142, 250, 102, 108])
+   TCP 54163 -> 993
+=======================================================================================================
+
+Interface --> MSTCP (60 bytes)
+
+  Ipv4 Address([142, 250, 102, 108]) => Address([192, 168, 3, 126])
+   TCP 993 -> 54163
+=======================================================================================================
+
+MSTCP --> Interface (74 bytes)
+
+  Ipv4 Address([192, 168, 3, 126]) => Address([158, 255, 51, 217])
+   UDP 63616 -> 59999
+=======================================================================================================
+
+Interface --> MSTCP (80 bytes)
+
+  Ipv4 Address([192, 168, 3, 105]) => Address([224, 0, 0, 251])
+   UDP 5353 -> 5353
+
+Interface --> MSTCP (100 bytes)
+
+  Ipv6 Address([254, 128, 0, 0, 0, 0, 0, 0, 18, 44, 107, 255, 254, 84, 37, 126]) => Address([255, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 251])
+   UDP 5353 -> 5353
 
 Shutting down...
 ```
