@@ -343,24 +343,24 @@ impl<'a, const N: usize> EthMRequest<'a, N> {
         }
     }
 
-    /// Takes the `IntermediateBuffer` from the `EthPacket` at the specified index, replacing it with `None`.
-    ///
-    /// This is useful when you want to use the packet's buffer elsewhere, while ensuring that the `EthMRequest` no longer has access to it.
-    fn take_packet(&mut self, index: usize) -> Option<&'a mut IntermediateBuffer> {
-        if index < N {
-            self.packets[index].buffer.take()
-        } else {
-            None
-        }
-    }
-
     /// Returns an iterator that yields `Some(IntermediateBuffer)` for each non-empty buffer in `packets`, in order,
     /// up to `packet_success`.
+    /// 
+    /// # Description
     ///
-    /// Once called, this method "drains" the non-empty buffers from `packets`, leaving them empty.
-    pub fn drain_success_packets(
-        &mut self,
-    ) -> impl Iterator<Item = &'a mut IntermediateBuffer> + '_ {
+    /// This function, `drain_success`, operates on mutable reference to the current instance of the struct.
+    /// It returns an iterator that goes over each non-empty buffer in `packets`, in their
+    /// original order, but only up to the index specified by `packet_success`. This iterator will
+    /// yield `Some(IntermediateBuffer)` for each of these buffers. These buffers represent packets
+    /// that have been successfully read from the driver.
+    ///
+    /// Once called, this method drains the non-empty buffers from `packets`, up to `packet_success` making them empty (`None`).
+    ///
+    /// # Returns
+    ///
+    /// This function returns an implementation of Iterator trait. The iterator item type is a mutable reference
+    /// to an `IntermediateBuffer` (`&'a mut IntermediateBuffer`). This iterator can be used to iterate over the drained buffers.
+    pub fn drain_success(&mut self) -> impl Iterator<Item = &'a mut IntermediateBuffer> + '_ {
         self.packets
             .iter_mut()
             .take(self.packet_success as usize)
@@ -372,6 +372,31 @@ impl<'a, const N: usize> EthMRequest<'a, N> {
                     None
                 }
             })
+    }
+
+    /// Returns an iterator that yields `Some(IntermediateBuffer)` for each non-empty buffer in `packets`.
+    ///
+    /// # Description
+    ///
+    /// This function, `drain`, operates on mutable reference to the current instance of the struct.
+    /// It returns an iterator which yields mutable references to `IntermediateBuffer` for each non-empty buffer in `packets`,
+    /// and it yields them in the order they occur in `packets`.
+    ///
+    /// Once called, this method drains the non-empty buffers from `packets`, making them empty (`None`).
+    ///
+    /// # Returns
+    ///
+    /// This function returns an implementation of Iterator trait. The iterator item type is a mutable reference
+    /// to an `IntermediateBuffer` (`&'a mut IntermediateBuffer`). This iterator can be used to iterate over the drained buffers.
+    pub fn drain(&mut self) -> impl Iterator<Item = &'a mut IntermediateBuffer> + '_ {
+        self.packets.iter_mut().filter_map(|packet| {
+            if packet.buffer.is_some() {
+                self.packet_number -= 1;
+                packet.buffer.take()
+            } else {
+                None
+            }
+        })
     }
 
     /// Sets the `IntermediateBuffer` for the `EthPacket` at the specified index.
@@ -453,30 +478,29 @@ impl<'a, const N: usize> EthMRequest<'a, N> {
             .position(|packet| packet.buffer.is_none())
     }
 
-    /// Consumes another `EthMRequest`, moving its packets into `self`.
+    /// Consumes packets from an Iterator, moving them into `self`.
     ///
     /// # Arguments
-    /// * `other` - The other `EthMRequest` to consume.
+    /// * `packets` - An iterator yielding mutable references to IntermediateBuffer.
     ///
     /// # Returns
     /// * Result indicating success or failure.
-    pub fn consume(&mut self, other: &mut EthMRequest<'a, N>) -> Result<()> {
-        let available_space = N - self.packet_number as usize;
-        if available_space < other.packet_number as usize {
-            return Err(ERROR_BUFFER_OVERFLOW.into());
-        }
+    pub fn append<I>(&mut self, packets: I) -> Result<()>
+    where
+        I: Iterator<Item = &'a mut IntermediateBuffer>,
+    {
+        for buffer in packets {
+            if self.packet_number as usize >= N {
+                return Err(ERROR_BUFFER_OVERFLOW.into());
+            }
 
-        for index in 0..other.packet_number as usize {
-            if let Some(buffer) = other.take_packet(index) {
-                if let Some(empty_slot) = self.first_empty_packet() {
-                    self.set_packet(empty_slot, buffer)?;
-                    self.packet_number += 1;
-                } else {
-                    return Err(ERROR_BUFFER_OVERFLOW.into());
-                }
+            if let Some(empty_slot) = self.first_empty_packet() {
+                self.set_packet(empty_slot, buffer)?;
+                self.packet_number += 1;
+            } else {
+                return Err(ERROR_BUFFER_OVERFLOW.into());
             }
         }
-        other.packet_number = 0;
 
         Ok(())
     }
