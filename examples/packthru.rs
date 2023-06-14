@@ -108,7 +108,7 @@ fn main() -> Result<()> {
             packets_number = packets_number.saturating_sub(packets_read);
 
             // Process each packet.
-            for (i, packet) in to_read.drain_success_packets().enumerate() {
+            for (i, packet) in to_read.drain_success().enumerate() {
                 let direction_flags = packet.get_device_flags();
 
                 // Print packet direction and remaining packets.
@@ -142,12 +142,6 @@ fn main() -> Result<()> {
                     Ok(_) => {}
                     Err(err) => println!("Error sending packet to adapter. Error code = {err}"),
                 }
-
-                //to_read.consume(&mut to_adapter).unwrap();
-                match to_read.consume(&mut to_adapter) {
-                    Ok(_) => {}
-                    Err(err) => println!("Error consuming outgoing packets. Error code = {err}"),
-                }
             }
 
             if !to_mstcp.get_packet_number() > 0 {
@@ -155,11 +149,11 @@ fn main() -> Result<()> {
                     Ok(_) => {}
                     Err(err) => println!("Error sending packet to mstcp. Error code = {err}"),
                 };
-                //to_read.consume(&mut to_mstcp).unwrap();
-                match to_read.consume(&mut to_mstcp) {
-                    Ok(_) => {}
-                    Err(err) => println!("Error consuming incoming packets. Error code = {err}"),
-                }
+            }
+
+            match to_read.append(to_mstcp.drain().chain(to_adapter.drain())) {
+                Ok(_) => {}
+                Err(err) => println!("Error consuming processed packets. Error code = {err}"),
             }
 
             if packets_number == 0 {
