@@ -28,7 +28,7 @@ Add the following to your `Cargo.toml` file:
 
 ```toml
 [dependencies]
-ndisapi = "0.4.6"
+ndisapi = "0.5.1"
 ```
 
 ## Usage
@@ -68,7 +68,7 @@ Here is an example of how to run the `listadapters` example:
 
 ```bash
 PS D:\firezone\ndisapi> cargo run --example listadapters
-   Compiling ndisapi v0.4.5 (D:\firezone\ndisapi)
+   Compiling ndisapi v0.5.1 (D:\firezone\ndisapi)
     Finished dev [unoptimized + debuginfo] target(s) in 3.22s
      Running `target\debug\examples\listadapters.exe`
 Detected Windows Packet Filter version 3.4.3
