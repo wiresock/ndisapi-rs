@@ -84,7 +84,7 @@ impl Ndisapi {
     /// # Examples
     ///
     /// ```no_run
-    /// use ndisapi_rs::Ndisapi;
+    /// use ndisapi::Ndisapi;
     /// let ndisapi = Ndisapi::new("NDISRD").unwrap();
     /// ```
     pub fn new(driver_name: &str) -> Result<Self> {

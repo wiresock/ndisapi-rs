@@ -4,7 +4,7 @@
 /// Upon receiving a packet, its content is decoded and displayed on the console screen, providing a real-time view of
 /// the network traffic.
 use clap::Parser;
-use ndisapi_rs::{DirectionFlags, EthRequest, FilterFlags, IntermediateBuffer, Ndisapi};
+use ndisapi::{DirectionFlags, EthRequest, FilterFlags, IntermediateBuffer, Ndisapi};
 use smoltcp::wire::{
     ArpPacket, EthernetFrame, EthernetProtocol, Icmpv4Packet, Icmpv6Packet, IpProtocol, Ipv4Packet,
     Ipv6Packet, TcpPacket, UdpPacket,

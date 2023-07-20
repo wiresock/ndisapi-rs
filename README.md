@@ -1,10 +1,10 @@
-# NDISAPI-RS
+# NDISAPI
 
-[![Crates.io](https://img.shields.io/crates/v/ndisapi-rs.svg)](https://crates.io/crates/ndisapi-rs)
-[![Documentation](https://docs.rs/ndisapi-rs/badge.svg)](https://docs.rs/ndisapi-rs)
-[![License](https://img.shields.io/crates/l/ndisapi-rs)](https://github.com/wiresock/ndisapi-rs/blob/main/LICENSE)
+[![Crates.io](https://img.shields.io/crates/v/ndisapi.svg)](https://crates.io/crates/ndisapi)
+[![Documentation](https://docs.rs/ndisapi/badge.svg)](https://docs.rs/ndisapi)
+[![License](https://img.shields.io/crates/l/ndisapi)](https://github.com/wiresock/ndisapi/blob/main/LICENSE)
 
-NDISAPI-RS is a Rust crate for interacting with the [Windows Packet Filter](https://www.ntkernel.com/windows-packet-filter/) driver. It provides an easy-to-use, safe, and efficient interface to efficiently filter (inspect and modify) raw network packets at the NDIS level of the network stack with minimal impact on network activity.
+NDISAPI is a Rust crate for interacting with the [Windows Packet Filter](https://www.ntkernel.com/windows-packet-filter/) driver. It provides an easy-to-use, safe, and efficient interface to efficiently filter (inspect and modify) raw network packets at the NDIS level of the network stack with minimal impact on network activity.
 
 Windows Packet Filter (WinpkFilter) is a high-performance, lightweight packet filtering framework for Windows, enabling developers to efficiently inspect, modify, and control raw network packets at the NDIS level. With user-friendly APIs and support for various Windows versions, WinpkFilter simplifies network packet manipulation without requiring kernel-mode programming expertise.
 
@@ -28,7 +28,7 @@ Add the following to your `Cargo.toml` file:
 
 ```toml
 [dependencies]
-ndisapi-rs = "0.4.6"
+ndisapi = "0.4.6"
 ```
 
 ## Usage
@@ -36,7 +36,7 @@ ndisapi-rs = "0.4.6"
 Here's an example of how to enumerate network adapters and print their information:
 
 ```rust
-use ndisapi_rs::{MacAddress, Ndisapi};
+use ndisapi::{MacAddress, Ndisapi};
 
 fn main() {
     let ndis = Ndisapi::new("NDISRD").expect("Failed to create NdisApi instance");
@@ -60,7 +60,7 @@ fn main() {
 }
 ```
 
-For more examples and in-depth usage, check out the [documentation](https://docs.rs/ndisapi-rs).
+For more examples and in-depth usage, check out the [documentation](https://docs.rs/ndisapi).
 
 ## Demo
 
@@ -68,7 +68,7 @@ Here is an example of how to run the `listadapters` example:
 
 ```bash
 PS D:\firezone\ndisapi> cargo run --example listadapters
-   Compiling ndisapi-rs v0.4.5 (D:\firezone\ndisapi)
+   Compiling ndisapi v0.4.5 (D:\firezone\ndisapi)
     Finished dev [unoptimized + debuginfo] target(s) in 3.22s
      Running `target\debug\examples\listadapters.exe`
 Detected Windows Packet Filter version 3.4.3
@@ -180,5 +180,5 @@ Shutting down...
 
 ## License
 
-This project is licensed under the Apache License 2.0. See [LICENSE](https://github.com/wiresock/ndisapi-rs/blob/main/LICENSE) for details.
+This project is licensed under the Apache License 2.0. See [LICENSE](https://github.com/wiresock/ndisapi/blob/main/LICENSE) for details.
 

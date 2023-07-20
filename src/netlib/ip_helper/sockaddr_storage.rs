@@ -5,7 +5,7 @@
 //! # Examples
 //!
 //! ```
-//! use ndisapi_rs::SockAddrStorage;
+//! use ndisapi::SockAddrStorage;
 //! use std::net::Ipv4Addr;
 //!
 //! let ipv4_addr = Ipv4Addr::new(192, 168, 0, 1);

@@ -7,7 +7,7 @@
 /// 5. Redirect only ARP/RARP packets to user mode, and pass all other packets without processing.
 /// 6. Redirect only outgoing ICMP ping request packets to user mode. Pass all others.
 use clap::Parser;
-use ndisapi_rs::{
+use ndisapi::{
     DirectionFlags, Eth802_3FilterFlags, EthRequest, FilterFlags, FilterLayerFlags,
     IcmpFilterFlags, IntermediateBuffer, IpV4FilterFlags, IpV6FilterFlags, Ndisapi,
     StaticFilterTable, TcpUdpFilterFlags, ETH_802_3, FILTER_PACKET_DROP, FILTER_PACKET_PASS,

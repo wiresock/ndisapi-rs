@@ -7,7 +7,7 @@ use std::{
     ptr::write_bytes,
 };
 
-use ndisapi_rs::{MacAddress, Ndisapi, PacketOidData, RasLinks};
+use ndisapi::{MacAddress, Ndisapi, PacketOidData, RasLinks};
 use windows::core::Result;
 
 const OID_802_3_CURRENT_ADDRESS: u32 = 0x01010102;

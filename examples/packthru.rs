@@ -5,7 +5,7 @@
 /// a real-time visualization of network traffic. This example resembles the `passthru` utility but employs bulk
 /// packet sending and receiving to optimize performance.
 use clap::Parser;
-use ndisapi_rs::{DirectionFlags, EthMRequest, FilterFlags, IntermediateBuffer, Ndisapi};
+use ndisapi::{DirectionFlags, EthMRequest, FilterFlags, IntermediateBuffer, Ndisapi};
 use smoltcp::wire::{
     ArpPacket, EthernetFrame, EthernetProtocol, Icmpv4Packet, Icmpv6Packet, IpProtocol, Ipv4Packet,
     Ipv6Packet, TcpPacket, UdpPacket,
