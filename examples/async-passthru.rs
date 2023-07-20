@@ -1,5 +1,5 @@
 use clap::Parser;
-use ndisapi_rs::{AsyncNdisapiAdapter, DirectionFlags, FilterFlags, IntermediateBuffer, Ndisapi};
+use ndisapi::{AsyncNdisapiAdapter, DirectionFlags, FilterFlags, IntermediateBuffer, Ndisapi};
 use smoltcp::wire::{
     ArpPacket, EthernetFrame, EthernetProtocol, Icmpv4Packet, Icmpv6Packet, IpProtocol, Ipv4Packet,
     Ipv6Packet, TcpPacket, UdpPacket,

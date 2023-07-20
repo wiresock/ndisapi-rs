@@ -73,7 +73,7 @@ impl From<u64> for IfLuid {
     /// # Examples
     ///
     /// ```
-    /// use ndisapi_rs::IfLuid;
+    /// use ndisapi::IfLuid;
     /// // Create two IfLuid instances using u64 values
     /// let value1: u64 = 42;
     /// let if_luid1 = IfLuid::from(value1);
