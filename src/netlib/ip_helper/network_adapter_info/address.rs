@@ -164,10 +164,7 @@ impl IphlpNetworkAdapterInfo {
     /// The caller must ensure that the provided `address` reference is valid and correctly
     /// initialized to avoid any undefined behavior.
     pub fn delete_unicast_address(address: &MIB_UNICASTIPADDRESS_ROW) -> bool {
-        match unsafe { DeleteUnicastIpAddressEntry(address) } {
-            Ok(_) => true,
-            Err(_) => false,
-        }
+        unsafe { DeleteUnicastIpAddressEntry(address) }.is_ok()
     }
 
     /// Removes all unicast addresses associated with the network interface.
