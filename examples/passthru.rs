@@ -136,9 +136,9 @@ fn main() -> Result<()> {
             }
         }
 
-        unsafe {
-            ResetEvent(event); // Reset the event to continue waiting for packets to arrive.
-        }
+        let _ = unsafe {
+            ResetEvent(event) // Reset the event to continue waiting for packets to arrive.
+        };
     }
 
     // Put the network interface into default mode.
@@ -147,9 +147,9 @@ fn main() -> Result<()> {
         FilterFlags::default(),
     )?;
 
-    unsafe {
-        CloseHandle(event); // Close the event handle.
-    }
+    let _ = unsafe {
+        CloseHandle(event) // Close the event handle.
+    };
 
     // Return the result.
     Ok(())

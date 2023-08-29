@@ -17,7 +17,7 @@
 use windows::{
     core::{Result, PCWSTR},
     Win32::Foundation::CloseHandle,
-    Win32::Foundation::{GetLastError, HANDLE},
+    Win32::Foundation::HANDLE,
     Win32::Storage::FileSystem::{
         CreateFileW, FILE_FLAG_OVERLAPPED, FILE_SHARE_READ, FILE_SHARE_WRITE, OPEN_EXISTING,
     },
@@ -63,9 +63,7 @@ impl Drop for Ndisapi {
     // Provides a custom implementation for the `drop` method
     fn drop(&mut self) {
         // Closes the driver_handle when the `Ndisapi` instance goes out of scope
-        unsafe {
-            CloseHandle(self.driver_handle);
-        }
+        let _ = unsafe { CloseHandle(self.driver_handle) };
     }
 }
 
@@ -97,7 +95,7 @@ impl Ndisapi {
         registry_key.push(0);
 
         // Attempts to create a file handle for the NDIS filter driver
-        if let Ok(driver_handle) = unsafe {
+        match unsafe {
             CreateFileW(
                 PCWSTR::from_raw(filename.as_ptr()),
                 0u32,
@@ -108,14 +106,11 @@ impl Ndisapi {
                 None,
             )
         } {
-            // Returns a new Ndisapi instance with the created handle if successful
-            Ok(Self {
+            Ok(driver_handle) => Ok(Self {
                 driver_handle,
                 registry_key,
-            })
-        } else {
-            // Returns an error if the file handle creation fails
-            Err(unsafe { GetLastError() }.into())
+            }),
+            Err(e) => Err(e),
         }
     }
 

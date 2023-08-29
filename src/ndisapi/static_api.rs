@@ -8,8 +8,7 @@
 //!
 
 use windows::{
-    core::{Result, PCWSTR, PWSTR},
-    s, w,
+    core::{s, w, Result, PCWSTR, PWSTR},
     Win32::System::Registry::{
         RegCloseKey, RegEnumKeyExW, RegOpenKeyExW, RegQueryValueExA, RegQueryValueExW,
         RegSetValueExW, HKEY, HKEY_LOCAL_MACHINE, KEY_READ, KEY_WRITE, REG_DWORD, REG_VALUE_TYPE,
@@ -96,7 +95,7 @@ impl Ndisapi {
         };
 
         if result.is_err() {
-            return Err(result.into());
+            return Err(result.err().unwrap());
         }
 
         // Counter for enumerating registry keys
@@ -125,7 +124,7 @@ impl Ndisapi {
                 )
             };
 
-            if !result.is_ok() {
+            if result.is_err() {
                 break;
             } else {
                 let result = unsafe {
@@ -197,14 +196,10 @@ impl Ndisapi {
                                         found = true;
                                     }
                                 }
-                                unsafe {
-                                    RegCloseKey(linkage_key);
-                                }
+                                let _ = unsafe { RegCloseKey(linkage_key) };
                             }
                         }
-                        unsafe {
-                            RegCloseKey(connection_key);
-                        }
+                        let _ = unsafe { RegCloseKey(connection_key) };
                     }
                     temp_buffer_size = temp_buffer.len() as u32;
                 }
@@ -214,9 +209,7 @@ impl Ndisapi {
             }
         }
 
-        unsafe {
-            RegCloseKey(target_key);
-        }
+        let _ = unsafe { RegCloseKey(target_key) };
 
         Ok(found)
     }
@@ -347,13 +340,11 @@ impl Ndisapi {
                 }
             }
 
-            unsafe {
-                RegCloseKey(hkey);
-            }
+            let _ = unsafe { RegCloseKey(hkey) };
         }
 
-        if !result.is_ok() {
-            Err(result.into())
+        if result.is_err() {
+            Err(result.err().unwrap())
         } else {
             Ok(friendly_name)
         }
@@ -396,11 +387,7 @@ impl Ndisapi {
             };
         }
 
-        if result.is_ok() {
-            Ok(())
-        } else {
-            Err(result.into())
-        }
+        result
     }
 
     /// This function retrieves the value set by `set_mtu_decrement` from the registry. Note that if you have not
@@ -484,11 +471,7 @@ impl Ndisapi {
             };
         }
 
-        if result.is_ok() {
-            Ok(())
-        } else {
-            Err(result.into())
-        }
+        result
     }
 
     /// Returns the current default filter mode value applied to each adapter when it appears in the system.
@@ -576,11 +559,7 @@ impl Ndisapi {
             };
         }
 
-        if result.is_ok() {
-            Ok(())
-        } else {
-            Err(result.into())
-        }
+        result
     }
 
     /// Retrieves the pool size multiplier for the Windows Packet Filter driver from the Windows registry.

@@ -28,7 +28,7 @@ Add the following to your `Cargo.toml` file:
 
 ```toml
 [dependencies]
-ndisapi = "0.5.1"
+ndisapi = "0.5.2"
 ```
 
 ## Usage
@@ -67,8 +67,8 @@ For more examples and in-depth usage, check out the [documentation](https://docs
 Here is an example of how to run the `listadapters` example:
 
 ```bash
-PS D:\firezone\ndisapi> cargo run --example listadapters
-   Compiling ndisapi v0.5.1 (D:\firezone\ndisapi)
+PS D:\github.com\ndisapi-rs> cargo run --example listadapters
+   Compiling ndisapi v0.5.2 (D:\github.com\ndisapi-rs)
     Finished dev [unoptimized + debuginfo] target(s) in 3.22s
      Running `target\debug\examples\listadapters.exe`
 Detected Windows Packet Filter version 3.4.3
@@ -104,7 +104,7 @@ Getting OID_GEN_CURRENT_PACKET_FILTER Error: Data error (cyclic redundancy check
 Following is the demonstration of the async-packthru example. For this scenario, we will assume that `vEthernet (WLAN Virtual Switch)` is the default internet connection
 
 ```bash
-PS D:\firezone\ndisapi> cargo run --example async-packthru -- --interface-index 12
+PS D:\github.com\ndisapi-rs> cargo run --example async-packthru -- --interface-index 12
     Finished dev [unoptimized + debuginfo] target(s) in 0.11s
      Running `target\debug\examples\async-packthru.exe --interface-index 12`
 Detected Windows Packet Filter version 3.4.3

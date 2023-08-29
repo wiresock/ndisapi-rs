@@ -20,7 +20,7 @@ use std::sync::Arc;
 use windows::{
     core::Result,
     Win32::{
-        Foundation::{GetLastError, HANDLE, WIN32_ERROR},
+        Foundation::{HANDLE, WIN32_ERROR},
         System::Threading::CreateEventW,
     },
 };
@@ -147,13 +147,10 @@ impl AsyncNdisapiAdapter {
         // Wait for packet event
         match self.notif.next().await {
             Some(result) => match result {
-                Ok(_) => {
-                    if driver.read_packet(&mut request).is_ok() {
-                        Ok(())
-                    } else {
-                        Err(unsafe { GetLastError() }.into())
-                    }
-                }
+                Ok(_) => match driver.read_packet(&mut request) {
+                    Ok(_) => Ok(()),
+                    Err(e) => Err(e),
+                },
                 Err(e) => Err(e),
             },
             None => {
@@ -206,13 +203,10 @@ impl AsyncNdisapiAdapter {
         // Wait for packet event
         match self.notif.next().await {
             Some(result) => match result {
-                Ok(_) => {
-                    if driver.read_packets(&mut request).ok().is_some() {
-                        Ok(request.get_packet_success() as usize)
-                    } else {
-                        Err(unsafe { GetLastError() }.into())
-                    }
-                }
+                Ok(_) => match driver.read_packets(&mut request) {
+                    Ok(_) => Ok(request.get_packet_success() as usize),
+                    Err(err) => Err(err),
+                },
                 Err(e) => Err(e),
             },
             None => {
@@ -254,11 +248,7 @@ impl AsyncNdisapiAdapter {
         request.set_packet(packet);
 
         // Try to send packet to the network adapter.
-        if self.driver.send_packet_to_adapter(&request).is_ok() {
-            Ok(())
-        } else {
-            Err(unsafe { GetLastError() }.into())
-        }
+        self.driver.send_packet_to_adapter(&request)
     }
 
     /// Sends a specified number of Ethernet packets to the network adapter synchronously.
@@ -295,10 +285,9 @@ impl AsyncNdisapiAdapter {
         let request = ndisapi::EthMRequest::<N>::from_iter(self.adapter_handle, packets);
 
         // Try to send packets to the network adapter.
-        if self.driver.send_packets_to_adapter(&request).is_ok() {
-            Ok(request.get_packet_success() as usize)
-        } else {
-            Err(unsafe { GetLastError() }.into())
+        match self.driver.send_packets_to_adapter(&request) {
+            Ok(_) => Ok(request.get_packet_success() as usize),
+            Err(err) => Err(err),
         }
     }
 
@@ -328,11 +317,7 @@ impl AsyncNdisapiAdapter {
         request.set_packet(packet);
 
         // Try to send packet upwards the network stack.
-        if self.driver.send_packet_to_mstcp(&request).is_ok() {
-            Ok(())
-        } else {
-            Err(unsafe { GetLastError() }.into())
-        }
+        self.driver.send_packet_to_mstcp(&request)
     }
 
     /// Sends a sequence of Ethernet packets upwards through the network stack to the Microsoft TCP/IP protocol driver synchronously.
@@ -368,10 +353,9 @@ impl AsyncNdisapiAdapter {
         let request = ndisapi::EthMRequest::<N>::from_iter(self.adapter_handle, packets);
 
         // Try to send packets upwards the network stack.
-        if self.driver.send_packets_to_mstcp(&request).is_ok() {
-            Ok(request.get_packet_success() as usize)
-        } else {
-            Err(unsafe { GetLastError() }.into())
+        match self.driver.send_packets_to_mstcp(&request) {
+            Ok(_) => Ok(request.get_packet_success() as usize),
+            Err(err) => Err(err),
         }
     }
 }

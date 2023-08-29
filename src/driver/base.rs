@@ -345,7 +345,7 @@ impl<'a, const N: usize> EthMRequest<'a, N> {
 
     /// Returns an iterator that yields `Some(IntermediateBuffer)` for each non-empty buffer in `packets`, in order,
     /// up to `packet_success`.
-    /// 
+    ///
     /// # Description
     ///
     /// This function, `drain_success`, operates on mutable reference to the current instance of the struct.

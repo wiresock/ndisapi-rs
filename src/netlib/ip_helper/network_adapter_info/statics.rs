@@ -1,5 +1,5 @@
 use crate::{IfLuid, IphlpNetworkAdapterInfo, MacAddress};
-use windows::Win32::Foundation::ERROR_BUFFER_OVERFLOW;
+use windows::Win32::Foundation::{SetLastError, ERROR_BUFFER_OVERFLOW, NO_ERROR};
 use windows::Win32::NetworkManagement::IpHelper::{
     FreeMibTable, GetAdaptersAddresses, GetIfTable2, GAA_FLAG_INCLUDE_ALL_INTERFACES,
     GAA_FLAG_INCLUDE_GATEWAYS, GAA_FLAG_SKIP_ANYCAST, GAA_FLAG_SKIP_MULTICAST,
@@ -8,7 +8,7 @@ use windows::Win32::NetworkManagement::IpHelper::{
 use windows::Win32::NetworkManagement::Ndis::IfOperStatusUp;
 use windows::Win32::Networking::WinSock::AF_UNSPEC;
 use windows::Win32::{
-    Foundation::{SetLastError, ERROR_SUCCESS, NO_ERROR, WIN32_ERROR},
+    Foundation::WIN32_ERROR,
     NetworkManagement::IpHelper::{IP_ADAPTER_ADDRESSES_LH, MIB_IF_TABLE2},
 };
 
@@ -32,12 +32,9 @@ impl IphlpNetworkAdapterInfo {
         let mut dw_size = 0;
         let mut mib_table: *mut MIB_IF_TABLE2 = std::ptr::null_mut();
 
-        unsafe { SetLastError(ERROR_SUCCESS) };
-
         // Query detailed information on available network interfaces
         let error_code = unsafe { GetIfTable2(&mut mib_table) };
-        if error_code != NO_ERROR {
-            unsafe { SetLastError(error_code) };
+        if error_code.is_err() {
             return ret_val;
         }
 
@@ -120,7 +117,7 @@ impl IphlpNetworkAdapterInfo {
         }
 
         // Free interface table
-        unsafe { FreeMibTable(mib_table as *const core::ffi::c_void) };
+        let _ = unsafe { FreeMibTable(mib_table as *const core::ffi::c_void) };
 
         ret_val
     }
@@ -144,13 +141,8 @@ impl IphlpNetworkAdapterInfo {
         let mut dw_size = 0;
         let mut mib_table: *mut MIB_IF_TABLE2 = std::ptr::null_mut();
 
-        unsafe { SetLastError(ERROR_SUCCESS) };
-
         // Query detailed information on available network interfaces
-        let error_code = unsafe { GetIfTable2(&mut mib_table) };
-
-        if error_code != NO_ERROR {
-            unsafe { SetLastError(error_code) };
+        if unsafe { GetIfTable2(&mut mib_table) }.is_err() {
             return None;
         }
 
@@ -204,7 +196,8 @@ impl IphlpNetworkAdapterInfo {
                             if IfLuid::from(unsafe { (*entry_ptr).InterfaceLuid }) == luid {
                                 let result =
                                     unsafe { IphlpNetworkAdapterInfo::new(current, entry_ptr) };
-                                unsafe { FreeMibTable(mib_table as *const core::ffi::c_void) };
+                                let _ =
+                                    unsafe { FreeMibTable(mib_table as *const core::ffi::c_void) };
                                 return Some(result);
                             }
                         }
@@ -228,7 +221,7 @@ impl IphlpNetworkAdapterInfo {
         }
 
         // Free interface table
-        unsafe { FreeMibTable(mib_table as *const core::ffi::c_void) };
+        let _ = unsafe { FreeMibTable(mib_table as *const core::ffi::c_void) };
 
         None
     }
@@ -252,13 +245,8 @@ impl IphlpNetworkAdapterInfo {
         let mut dw_size = 0;
         let mut mib_table: *mut MIB_IF_TABLE2 = std::ptr::null_mut();
 
-        unsafe { SetLastError(ERROR_SUCCESS) };
-
         // Query detailed information on available network interfaces
-        let error_code = unsafe { GetIfTable2(&mut mib_table) };
-
-        if error_code != NO_ERROR {
-            unsafe { SetLastError(error_code) };
+        if unsafe { GetIfTable2(&mut mib_table) }.is_err() {
             return None;
         }
 
@@ -316,9 +304,8 @@ impl IphlpNetworkAdapterInfo {
                             {
                                 let result =
                                     unsafe { IphlpNetworkAdapterInfo::new(current, entry_ptr) };
-                                unsafe {
-                                    FreeMibTable(mib_table as *const core::ffi::c_void);
-                                };
+                                let _ =
+                                    unsafe { FreeMibTable(mib_table as *const core::ffi::c_void) };
                                 return Some(result);
                             }
                         }
@@ -342,7 +329,7 @@ impl IphlpNetworkAdapterInfo {
         }
 
         // Free interface table
-        unsafe { FreeMibTable(mib_table as *const core::ffi::c_void) };
+        let _ = unsafe { FreeMibTable(mib_table as *const core::ffi::c_void) };
 
         None
     }
@@ -366,13 +353,8 @@ impl IphlpNetworkAdapterInfo {
         let mut dw_size = 0;
         let mut mib_table: *mut MIB_IF_TABLE2 = std::ptr::null_mut();
 
-        unsafe { SetLastError(ERROR_SUCCESS) };
-
         // Query detailed information on available network interfaces
-        let error_code = unsafe { GetIfTable2(&mut mib_table) };
-
-        if error_code != NO_ERROR {
-            unsafe { SetLastError(error_code) };
+        if unsafe { GetIfTable2(&mut mib_table) }.is_err() {
             return None;
         }
 
@@ -432,9 +414,8 @@ impl IphlpNetworkAdapterInfo {
                             {
                                 let result =
                                     unsafe { IphlpNetworkAdapterInfo::new(current, entry_ptr) };
-                                unsafe {
-                                    FreeMibTable(mib_table as *const core::ffi::c_void);
-                                };
+                                let _ =
+                                    unsafe { FreeMibTable(mib_table as *const core::ffi::c_void) };
                                 return Some(result);
                             }
                         }
@@ -458,7 +439,7 @@ impl IphlpNetworkAdapterInfo {
         }
 
         // Free interface table
-        unsafe { FreeMibTable(mib_table as *const core::ffi::c_void) };
+        let _ = unsafe { FreeMibTable(mib_table as *const core::ffi::c_void) };
 
         None
     }

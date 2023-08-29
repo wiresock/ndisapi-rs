@@ -5,7 +5,7 @@ use windows::Win32::NetworkManagement::IpHelper::{
 };
 use windows::Win32::Networking::WinSock::AF_UNSPEC;
 use windows::Win32::{
-    Foundation::{SetLastError, ERROR_OBJECT_ALREADY_EXISTS, ERROR_SUCCESS, NO_ERROR},
+    Foundation::ERROR_OBJECT_ALREADY_EXISTS,
     NetworkManagement::IpHelper::{
         CreateUnicastIpAddressEntry, DeleteUnicastIpAddressEntry, InitializeUnicastIpAddressEntry,
         MIB_UNICASTIPADDRESS_ROW,
@@ -67,13 +67,15 @@ impl IphlpNetworkAdapterInfo {
         address_row.DadState = IpDadStatePreferred;
 
         // Call the CreateUnicastIpAddressEntry function (you need to implement this function)
-        let error_code = unsafe { CreateUnicastIpAddressEntry(&address_row) };
-
-        if error_code == NO_ERROR || error_code == ERROR_OBJECT_ALREADY_EXISTS {
-            Some(address_row)
-        } else {
-            unsafe { SetLastError(error_code) };
-            None
+        match unsafe { CreateUnicastIpAddressEntry(&address_row) } {
+            Ok(_) => Some(address_row),
+            Err(err) => {
+                if err == ERROR_OBJECT_ALREADY_EXISTS.into() {
+                    Some(address_row)
+                } else {
+                    None
+                }
+            }
         }
     }
 
@@ -128,13 +130,15 @@ impl IphlpNetworkAdapterInfo {
         address_row.OnLinkPrefixLength = prefix_length;
         address_row.DadState = IpDadStatePreferred;
 
-        let error_code = unsafe { CreateUnicastIpAddressEntry(&address_row) };
-
-        if error_code == NO_ERROR || error_code == ERROR_OBJECT_ALREADY_EXISTS {
-            Some(address_row)
-        } else {
-            unsafe { SetLastError(error_code) };
-            None
+        match unsafe { CreateUnicastIpAddressEntry(&address_row) } {
+            Ok(_) => Some(address_row),
+            Err(err) => {
+                if err == ERROR_OBJECT_ALREADY_EXISTS.into() {
+                    Some(address_row)
+                } else {
+                    None
+                }
+            }
         }
     }
 
@@ -157,17 +161,13 @@ impl IphlpNetworkAdapterInfo {
     ///
     /// This function contains unsafe code as it calls the `DeleteUnicastIpAddressEntry`
     /// Windows API function, which is an unsafe operation due to the use of raw pointers.
-    /// The function also sets the last error using the unsafe `SetLastError` function.
     /// The caller must ensure that the provided `address` reference is valid and correctly
     /// initialized to avoid any undefined behavior.
     pub fn delete_unicast_address(address: &MIB_UNICASTIPADDRESS_ROW) -> bool {
-        unsafe { SetLastError(ERROR_SUCCESS) };
-
-        let error_code = unsafe { DeleteUnicastIpAddressEntry(address) };
-
-        unsafe { SetLastError(error_code) };
-
-        error_code == NO_ERROR
+        match unsafe { DeleteUnicastIpAddressEntry(address) } {
+            Ok(_) => true,
+            Err(_) => false,
+        }
     }
 
     /// Removes all unicast addresses associated with the network interface.
@@ -183,28 +183,19 @@ impl IphlpNetworkAdapterInfo {
     pub fn reset_unicast_addresses(&self) -> bool {
         let mut table: *mut MIB_UNICASTIPADDRESS_TABLE = std::ptr::null_mut();
 
-        unsafe { SetLastError(ERROR_SUCCESS) };
-
-        let error_code = unsafe { GetUnicastIpAddressTable(AF_UNSPEC, &mut table) };
-
-        if error_code == NO_ERROR {
-            for i in 0..unsafe { (*table).NumEntries } {
-                let entry = unsafe { &mut (*table).Table[i as usize] };
-                if IfLuid::from(entry.InterfaceLuid) == self.luid {
-                    let error_code = unsafe { DeleteUnicastIpAddressEntry(entry) };
-                    if error_code != NO_ERROR {
-                        unsafe { SetLastError(error_code) };
+        match unsafe { GetUnicastIpAddressTable(AF_UNSPEC, &mut table) } {
+            Ok(_) => {
+                for i in 0..unsafe { (*table).NumEntries } {
+                    let entry = unsafe { &mut (*table).Table[i as usize] };
+                    if IfLuid::from(entry.InterfaceLuid) == self.luid {
+                        let _ = unsafe { DeleteUnicastIpAddressEntry(entry) };
                     }
                 }
+                let _ = unsafe { FreeMibTable(table as *mut _) };
+                true
             }
-
-            unsafe { FreeMibTable(table as *mut _) };
-            return true;
+            Err(_) => false,
         }
-
-        unsafe { SetLastError(error_code) };
-
-        false
     }
 
     /// Removes the specified IPv4 address from the network interface.
@@ -225,29 +216,24 @@ impl IphlpNetworkAdapterInfo {
     pub fn delete_unicast_address_ipv4(&self, address: Ipv4Addr) -> bool {
         let mut table: *mut MIB_UNICASTIPADDRESS_TABLE = std::ptr::null_mut();
 
-        let error_code = unsafe { GetUnicastIpAddressTable(AF_INET, &mut table) };
+        match unsafe { GetUnicastIpAddressTable(AF_INET, &mut table) } {
+            Ok(_) => {
+                for i in 0..unsafe { (*table).NumEntries } {
+                    let entry = unsafe { &(*table).Table[i as usize] };
 
-        if error_code == NO_ERROR {
-            for i in 0..unsafe { (*table).NumEntries } {
-                let entry = unsafe { &(*table).Table[i as usize] };
-
-                if IfLuid::from(entry.InterfaceLuid) == self.luid
-                    && Ipv4Addr::from(
-                        unsafe { entry.Address.Ipv4.sin_addr.S_un.S_addr }.to_ne_bytes(),
-                    ) == address
-                {
-                    let error_code = unsafe { DeleteUnicastIpAddressEntry(entry) };
-                    if error_code == NO_ERROR {
-                        unsafe { SetLastError(error_code) };
+                    if IfLuid::from(entry.InterfaceLuid) == self.luid
+                        && Ipv4Addr::from(
+                            unsafe { entry.Address.Ipv4.sin_addr.S_un.S_addr }.to_ne_bytes(),
+                        ) == address
+                    {
+                        let _ = unsafe { DeleteUnicastIpAddressEntry(entry) };
                     }
                 }
-            }
 
-            unsafe { FreeMibTable(table as *mut _) };
-            true
-        } else {
-            unsafe { SetLastError(error_code) };
-            false
+                let _ = unsafe { FreeMibTable(table as *mut _) };
+                true
+            }
+            Err(_) => false,
         }
     }
 
@@ -269,27 +255,22 @@ impl IphlpNetworkAdapterInfo {
     pub fn delete_unicast_address_ipv6(&self, address: Ipv6Addr) -> bool {
         let mut table: *mut MIB_UNICASTIPADDRESS_TABLE = std::ptr::null_mut();
 
-        let error_code = unsafe { GetUnicastIpAddressTable(AF_INET6, &mut table) };
+        match unsafe { GetUnicastIpAddressTable(AF_INET6, &mut table) } {
+            Ok(_) => {
+                for i in 0..unsafe { (*table).NumEntries } {
+                    let entry = unsafe { &(*table).Table[i as usize] };
 
-        if error_code == NO_ERROR {
-            for i in 0..unsafe { (*table).NumEntries } {
-                let entry = unsafe { &(*table).Table[i as usize] };
-
-                if IfLuid::from(entry.InterfaceLuid) == self.luid
-                    && Ipv6Addr::from(unsafe { entry.Address.Ipv6.sin6_addr.u.Byte }) == address
-                {
-                    let error_code = unsafe { DeleteUnicastIpAddressEntry(entry) };
-                    if error_code == NO_ERROR {
-                        unsafe { SetLastError(error_code) };
+                    if IfLuid::from(entry.InterfaceLuid) == self.luid
+                        && Ipv6Addr::from(unsafe { entry.Address.Ipv6.sin6_addr.u.Byte }) == address
+                    {
+                        let _ = unsafe { DeleteUnicastIpAddressEntry(entry) };
                     }
                 }
-            }
 
-            unsafe { FreeMibTable(table as *mut _) };
-            true
-        } else {
-            unsafe { SetLastError(error_code) };
-            false
+                let _ = unsafe { FreeMibTable(table as *mut _) };
+                true
+            }
+            Err(_) => false,
         }
     }
 }

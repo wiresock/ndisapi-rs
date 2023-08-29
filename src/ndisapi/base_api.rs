@@ -8,11 +8,7 @@
 
 use std::mem::{size_of, MaybeUninit};
 
-use windows::{
-    core::Result,
-    Win32::Foundation::{GetLastError, HANDLE},
-    Win32::System::IO::DeviceIoControl,
-};
+use windows::{core::Result, Win32::Foundation::HANDLE, Win32::System::IO::DeviceIoControl};
 
 use super::Ndisapi;
 use crate::driver::*;
@@ -41,7 +37,7 @@ impl Ndisapi {
             ..Default::default()
         };
 
-        let result = unsafe {
+        match unsafe {
             DeviceIoControl(
                 self.driver_handle,
                 IOCTL_NDISRD_GET_ADAPTER_MODE,
@@ -52,12 +48,9 @@ impl Ndisapi {
                 None,
                 None,
             )
-        };
-
-        if !result.as_bool() {
-            Err(unsafe { GetLastError() }.into())
-        } else {
-            Ok(adapter_mode.flags)
+        } {
+            Ok(_) => Ok(adapter_mode.flags),
+            Err(e) => Err(e),
         }
     }
 
@@ -100,7 +93,7 @@ impl Ndisapi {
     /// * `Result<()>` - A Result containing an empty tuple if the query was successful,
     ///   or an error if it failed.
     pub fn get_ras_links(&self, adapter_handle: HANDLE, ras_links: &mut RasLinks) -> Result<()> {
-        let result = unsafe {
+        match unsafe {
             DeviceIoControl(
                 self.driver_handle,
                 IOCTL_NDISRD_GET_RAS_LINKS,
@@ -111,12 +104,9 @@ impl Ndisapi {
                 None,
                 None,
             )
-        };
-
-        if !result.as_bool() {
-            Err(unsafe { GetLastError() }.into())
-        } else {
-            Ok(())
+        } {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e),
         }
     }
 
@@ -132,7 +122,7 @@ impl Ndisapi {
     pub fn get_tcpip_bound_adapters_info(&self) -> Result<Vec<NetworkAdapterInfo>> {
         let mut adapters: MaybeUninit<TcpAdapterList> = ::std::mem::MaybeUninit::uninit();
 
-        let result = unsafe {
+        match unsafe {
             DeviceIoControl(
                 self.driver_handle,
                 IOCTL_NDISRD_GET_TCPIP_INTERFACES,
@@ -143,28 +133,27 @@ impl Ndisapi {
                 None,
                 None,
             )
-        };
+        } {
+            Ok(_) => {
+                let mut result = Vec::new();
+                let adapters = unsafe { adapters.assume_init() };
 
-        if result.as_bool() {
-            let mut result = Vec::new();
-            let adapters = unsafe { adapters.assume_init() };
-
-            for i in 0..adapters.adapter_count as usize {
-                let adapter_name =
-                    String::from_utf8(adapters.adapter_name_list[i].to_vec()).unwrap();
-                let adapter_name = adapter_name.trim_end_matches(char::from(0)).to_owned();
-                let next = NetworkAdapterInfo::new(
-                    adapter_name,
-                    adapters.adapter_handle[i],
-                    adapters.adapter_medium_list[i],
-                    adapters.current_address[i],
-                    adapters.mtu[i],
-                );
-                result.push(next);
+                for i in 0..adapters.adapter_count as usize {
+                    let adapter_name =
+                        String::from_utf8(adapters.adapter_name_list[i].to_vec()).unwrap();
+                    let adapter_name = adapter_name.trim_end_matches(char::from(0)).to_owned();
+                    let next = NetworkAdapterInfo::new(
+                        adapter_name,
+                        adapters.adapter_handle[i],
+                        adapters.adapter_medium_list[i],
+                        adapters.current_address[i],
+                        adapters.mtu[i],
+                    );
+                    result.push(next);
+                }
+                Ok(result)
             }
-            Ok(result)
-        } else {
-            Err(unsafe { GetLastError() }.into())
+            Err(e) => Err(e),
         }
     }
 
@@ -179,7 +168,7 @@ impl Ndisapi {
     pub fn get_version(&self) -> Result<Version> {
         let mut version = u32::MAX;
 
-        let result = unsafe {
+        match unsafe {
             DeviceIoControl(
                 self.driver_handle,
                 IOCTL_NDISRD_GET_VERSION,
@@ -190,16 +179,13 @@ impl Ndisapi {
                 None,
                 None,
             )
-        };
-
-        if !result.as_bool() {
-            Err(unsafe { GetLastError() }.into())
-        } else {
-            Ok(Version {
+        } {
+            Ok(_) => Ok(Version {
                 major: (version & (0xF000)) >> 12,
                 minor: (version & (0xFF000000)) >> 24,
                 revision: (version & (0xFF0000)) >> 16,
-            })
+            }),
+            Err(e) => Err(e),
         }
     }
 
@@ -221,7 +207,7 @@ impl Ndisapi {
     /// * `Result<()>` - A Result indicating whether the query operation was successful or not.
     ///   On success, returns `Ok(())`. On failure, returns an error.
     pub fn ndis_get_request<T>(&self, oid_request: &mut PacketOidData<T>) -> Result<()> {
-        let result = unsafe {
+        match unsafe {
             DeviceIoControl(
                 self.driver_handle,
                 IOCTL_NDISRD_NDIS_GET_REQUEST,
@@ -232,12 +218,9 @@ impl Ndisapi {
                 None,
                 None,
             )
-        };
-
-        if !result.as_bool() {
-            Err(unsafe { GetLastError() }.into())
-        } else {
-            Ok(())
+        } {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e),
         }
     }
 
@@ -259,7 +242,7 @@ impl Ndisapi {
     /// * `Result<()>` - A Result indicating whether the set operation was successful or not.
     ///   On success, returns `Ok(())`. On failure, returns an error.
     pub fn ndis_set_request<T>(&self, oid_request: &PacketOidData<T>) -> Result<()> {
-        let result = unsafe {
+        match unsafe {
             DeviceIoControl(
                 self.driver_handle,
                 IOCTL_NDISRD_NDIS_SET_REQUEST,
@@ -270,12 +253,9 @@ impl Ndisapi {
                 None,
                 None,
             )
-        };
-
-        if !result.as_bool() {
-            Err(unsafe { GetLastError() }.into())
-        } else {
-            Ok(())
+        } {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e),
         }
     }
 
@@ -293,7 +273,7 @@ impl Ndisapi {
     /// * `Result<()>` - A Result indicating whether setting the event was successful or not.
     ///   On success, returns `Ok(())`. On failure, returns an error.
     pub fn set_adapter_list_change_event(&self, event_handle: HANDLE) -> Result<()> {
-        let result = unsafe {
+        match unsafe {
             DeviceIoControl(
                 self.driver_handle,
                 IOCTL_NDISRD_SET_ADAPTER_EVENT,
@@ -304,12 +284,9 @@ impl Ndisapi {
                 None,
                 None,
             )
-        };
-
-        if !result.as_bool() {
-            Err(unsafe { GetLastError() }.into())
-        } else {
-            Ok(())
+        } {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e),
         }
     }
 
@@ -337,7 +314,7 @@ impl Ndisapi {
             flags,
         };
 
-        let result = unsafe {
+        match unsafe {
             DeviceIoControl(
                 self.driver_handle,
                 IOCTL_NDISRD_SET_ADAPTER_MODE,
@@ -348,12 +325,9 @@ impl Ndisapi {
                 None,
                 None,
             )
-        };
-
-        if !result.as_bool() {
-            Err(unsafe { GetLastError() }.into())
-        } else {
-            Ok(())
+        } {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e),
         }
     }
 
@@ -389,7 +363,7 @@ impl Ndisapi {
     /// * `Result<()>` - A Result indicating whether setting the hardware packet filter event was successful or not.
     ///   On success, returns `Ok(())`. On failure, returns an error.
     pub fn set_hw_packet_filter_event(&self, event_handle: HANDLE) -> Result<()> {
-        let result = unsafe {
+        match unsafe {
             DeviceIoControl(
                 self.driver_handle,
                 IOCTL_NDISRD_SET_ADAPTER_HWFILTER_EVENT,
@@ -400,12 +374,9 @@ impl Ndisapi {
                 None,
                 None,
             )
-        };
-
-        if !result.as_bool() {
-            Err(unsafe { GetLastError() }.into())
-        } else {
-            Ok(())
+        } {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e),
         }
     }
 
@@ -421,7 +392,7 @@ impl Ndisapi {
     /// * `Result<()>` - A Result indicating whether setting the WAN event was successful or not. On success,
     ///   returns `Ok(())`. On failure, returns an error.
     pub fn set_wan_event(&self, event_handle: HANDLE) -> Result<()> {
-        let result = unsafe {
+        match unsafe {
             DeviceIoControl(
                 self.driver_handle,
                 IOCTL_NDISRD_SET_WAN_EVENT,
@@ -432,12 +403,9 @@ impl Ndisapi {
                 None,
                 None,
             )
-        };
-
-        if !result.as_bool() {
-            Err(unsafe { GetLastError() }.into())
-        } else {
-            Ok(())
+        } {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e),
         }
     }
 
@@ -453,7 +421,7 @@ impl Ndisapi {
     pub fn get_intermediate_buffer_pool_size(&self) -> Result<u32> {
         let mut pool_size: u32 = 0;
 
-        let result = unsafe {
+        match unsafe {
             DeviceIoControl(
                 self.driver_handle,
                 IOCTL_NDISRD_QUERY_IB_POOL_SIZE,
@@ -464,12 +432,9 @@ impl Ndisapi {
                 None,
                 None,
             )
-        };
-
-        if !result.as_bool() {
-            Err(unsafe { GetLastError() }.into())
-        } else {
-            Ok(pool_size)
+        } {
+            Ok(_) => Ok(pool_size),
+            Err(e) => Err(e),
         }
     }
 }
