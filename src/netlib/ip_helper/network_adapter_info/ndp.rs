@@ -3,7 +3,7 @@ use std::net::{Ipv4Addr, Ipv6Addr};
 use windows::Win32::NetworkManagement::IpHelper::{CreateIpNetEntry2, DeleteIpNetEntry2};
 use windows::Win32::Networking::WinSock::NlnsPermanent;
 use windows::Win32::{
-    Foundation::{SetLastError, ERROR_SUCCESS, NO_ERROR},
+    Foundation::ERROR_OBJECT_ALREADY_EXISTS,
     NetworkManagement::IpHelper::MIB_IPNET_ROW2,
     Networking::WinSock::{AF_INET, AF_INET6, IN6_ADDR, IN6_ADDR_0},
 };
@@ -47,15 +47,15 @@ impl IphlpNetworkAdapterInfo {
             set_is_unreachable(&mut net_row, true);
         }
 
-        unsafe { SetLastError(ERROR_SUCCESS) };
-
-        let error_code = unsafe { CreateIpNetEntry2(&net_row) };
-
-        if error_code == NO_ERROR {
-            Some(net_row)
-        } else {
-            unsafe { SetLastError(error_code) };
-            None
+        match unsafe { CreateIpNetEntry2(&net_row) } {
+            Ok(_) => Some(net_row),
+            Err(err) => {
+                if err == ERROR_OBJECT_ALREADY_EXISTS.into() {
+                    Some(net_row)
+                } else {
+                    None
+                }
+            }
         }
     }
 
@@ -99,15 +99,15 @@ impl IphlpNetworkAdapterInfo {
             set_is_unreachable(&mut net_row, true);
         }
 
-        unsafe { SetLastError(ERROR_SUCCESS) };
-
-        let error_code = unsafe { CreateIpNetEntry2(&net_row) };
-
-        if error_code == NO_ERROR {
-            Some(net_row)
-        } else {
-            unsafe { SetLastError(error_code) };
-            None
+        match unsafe { CreateIpNetEntry2(&net_row) } {
+            Ok(_) => Some(net_row),
+            Err(err) => {
+                if err == ERROR_OBJECT_ALREADY_EXISTS.into() {
+                    Some(net_row)
+                } else {
+                    None
+                }
+            }
         }
     }
 
@@ -127,15 +127,6 @@ impl IphlpNetworkAdapterInfo {
     /// The caller should ensure that the provided MIB_IPNET_ROW2 reference is valid
     /// and points to an existing NDP entry before calling this function.
     pub fn delete_ndp_entry(address: &MIB_IPNET_ROW2) -> bool {
-        unsafe { SetLastError(ERROR_SUCCESS) };
-
-        let error_code = unsafe { DeleteIpNetEntry2(address) };
-
-        if error_code == NO_ERROR {
-            true
-        } else {
-            unsafe { SetLastError(error_code) };
-            false
-        }
+        unsafe { DeleteIpNetEntry2(address) }.is_ok()
     }
 }

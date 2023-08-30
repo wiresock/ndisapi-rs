@@ -10,7 +10,7 @@
 
 use std::mem::size_of;
 
-use windows::{core::Result, Win32::Foundation::GetLastError, Win32::System::IO::DeviceIoControl};
+use windows::{core::Result, Win32::System::IO::DeviceIoControl};
 
 use super::Ndisapi;
 use crate::driver::*;
@@ -40,7 +40,7 @@ impl Ndisapi {
             data_size: N as u32,
         };
 
-        let result = unsafe {
+        match unsafe {
             DeviceIoControl(
                 self.driver_handle,
                 IOCTL_NDISRD_ADD_SECOND_FAST_IO_SECTION,
@@ -51,12 +51,9 @@ impl Ndisapi {
                 None,
                 None,
             )
-        };
-
-        if !result.as_bool() {
-            Err(unsafe { GetLastError() }.into())
-        } else {
-            Ok(())
+        } {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e),
         }
     }
 
@@ -85,7 +82,7 @@ impl Ndisapi {
             data_size: N as u32,
         };
 
-        let result = unsafe {
+        match unsafe {
             DeviceIoControl(
                 self.driver_handle,
                 IOCTL_NDISRD_INITIALIZE_FAST_IO,
@@ -96,12 +93,9 @@ impl Ndisapi {
                 None,
                 None,
             )
-        };
-
-        if !result.as_bool() {
-            Err(unsafe { GetLastError() }.into())
-        } else {
-            Ok(())
+        } {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e),
         }
     }
 
@@ -131,7 +125,7 @@ impl Ndisapi {
             packets_num: N as u32,
         };
 
-        let result = unsafe {
+        match unsafe {
             DeviceIoControl(
                 self.driver_handle,
                 IOCTL_NDISRD_READ_PACKETS_UNSORTED,
@@ -142,12 +136,9 @@ impl Ndisapi {
                 None,
                 None,
             )
-        };
-
-        if !result.as_bool() {
-            Err(unsafe { GetLastError() }.into())
-        } else {
-            Ok(request.packets_num as usize)
+        } {
+            Ok(_) => Ok(request.packets_num as usize),
+            Err(e) => Err(e),
         }
     }
 
@@ -179,7 +170,7 @@ impl Ndisapi {
             packets_num: packets_num as u32,
         };
 
-        let result = unsafe {
+        match unsafe {
             DeviceIoControl(
                 self.driver_handle,
                 IOCTL_NDISRD_SEND_PACKET_TO_ADAPTER_UNSORTED,
@@ -190,12 +181,9 @@ impl Ndisapi {
                 None,
                 None,
             )
-        };
-
-        if !result.as_bool() {
-            Err(unsafe { GetLastError() }.into())
-        } else {
-            Ok(request.packets_num as usize)
+        } {
+            Ok(_) => Ok(request.packets_num as usize),
+            Err(e) => Err(e),
         }
     }
 
@@ -227,7 +215,7 @@ impl Ndisapi {
             packets_num: packets_num as u32,
         };
 
-        let result = unsafe {
+        match unsafe {
             DeviceIoControl(
                 self.driver_handle,
                 IOCTL_NDISRD_SEND_PACKET_TO_MSTCP_UNSORTED,
@@ -238,12 +226,9 @@ impl Ndisapi {
                 None,
                 None,
             )
-        };
-
-        if !result.as_bool() {
-            Err(unsafe { GetLastError() }.into())
-        } else {
-            Ok(request.packets_num as usize)
+        } {
+            Ok(_) => Ok(request.packets_num as usize),
+            Err(e) => Err(e),
         }
     }
 }

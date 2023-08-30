@@ -1,7 +1,7 @@
 use crate::IphlpNetworkAdapterInfo;
 use std::net::{Ipv4Addr, Ipv6Addr};
 use windows::Win32::{
-    Foundation::{SetLastError, ERROR_OBJECT_ALREADY_EXISTS, ERROR_SUCCESS, NO_ERROR},
+    Foundation::ERROR_OBJECT_ALREADY_EXISTS,
     NetworkManagement::IpHelper::{
         CreateIpForwardEntry2, InitializeIpForwardEntry, MIB_IPFORWARD_ROW2,
     },
@@ -41,15 +41,15 @@ impl IphlpNetworkAdapterInfo {
         forward_row.Protocol = MIB_IPPROTO_NT_STATIC;
         forward_row.Origin = NlroManual;
 
-        unsafe { SetLastError(ERROR_SUCCESS) };
-
-        let error_code = unsafe { CreateIpForwardEntry2(&forward_row) };
-
-        if error_code == NO_ERROR || error_code == ERROR_OBJECT_ALREADY_EXISTS {
-            Some(forward_row)
-        } else {
-            unsafe { SetLastError(error_code) };
-            None
+        match unsafe { CreateIpForwardEntry2(&forward_row) } {
+            Ok(_) => Some(forward_row),
+            Err(err) => {
+                if err == ERROR_OBJECT_ALREADY_EXISTS.into() {
+                    Some(forward_row)
+                } else {
+                    None
+                }
+            }
         }
     }
 
@@ -88,15 +88,15 @@ impl IphlpNetworkAdapterInfo {
         forward_row.Protocol = MIB_IPPROTO_NT_STATIC;
         forward_row.Origin = NlroManual;
 
-        unsafe { SetLastError(ERROR_SUCCESS) };
-
-        let error_code = unsafe { CreateIpForwardEntry2(&forward_row) };
-
-        if error_code == NO_ERROR || error_code == ERROR_OBJECT_ALREADY_EXISTS {
-            Some(forward_row)
-        } else {
-            unsafe { SetLastError(error_code) };
-            None
+        match unsafe { CreateIpForwardEntry2(&forward_row) } {
+            Ok(_) => Some(forward_row),
+            Err(err) => {
+                if err == ERROR_OBJECT_ALREADY_EXISTS.into() {
+                    Some(forward_row)
+                } else {
+                    None
+                }
+            }
         }
     }
 
@@ -131,15 +131,15 @@ impl IphlpNetworkAdapterInfo {
         forward_row.Protocol = MIB_IPPROTO_NT_STATIC;
         forward_row.Origin = NlroManual;
 
-        unsafe { SetLastError(ERROR_SUCCESS) };
-
-        let error_code = unsafe { CreateIpForwardEntry2(&forward_row) };
-
-        if error_code == NO_ERROR || error_code == ERROR_OBJECT_ALREADY_EXISTS {
-            Some(forward_row)
-        } else {
-            unsafe { SetLastError(error_code) };
-            None
+        match unsafe { CreateIpForwardEntry2(&forward_row) } {
+            Ok(_) => Some(forward_row),
+            Err(err) => {
+                if err == ERROR_OBJECT_ALREADY_EXISTS.into() {
+                    Some(forward_row)
+                } else {
+                    None
+                }
+            }
         }
     }
 
@@ -174,13 +174,15 @@ impl IphlpNetworkAdapterInfo {
         forward_row.Protocol = MIB_IPPROTO_NT_STATIC;
         forward_row.Origin = NlroManual;
 
-        let error_code = unsafe { CreateIpForwardEntry2(&forward_row) };
-
-        if error_code == NO_ERROR || error_code == ERROR_OBJECT_ALREADY_EXISTS {
-            Some(forward_row)
-        } else {
-            unsafe { SetLastError(error_code) };
-            None
+        match unsafe { CreateIpForwardEntry2(&forward_row) } {
+            Ok(_) => Some(forward_row),
+            Err(err) => {
+                if err == ERROR_OBJECT_ALREADY_EXISTS.into() {
+                    Some(forward_row)
+                } else {
+                    None
+                }
+            }
         }
     }
 }

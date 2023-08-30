@@ -1,10 +1,8 @@
 use crate::{GuidWrapper, IfLuid, IpGatewayInfo, MacAddress, SockAddrStorage};
 use std::net::IpAddr;
 use windows::{
-    core::{Result, PCWSTR},
-    w,
+    core::{w, Result, PCWSTR},
     Win32::{
-        Foundation::{SetLastError, NO_ERROR, STATUS_SUCCESS, WIN32_ERROR},
         NetworkManagement::{
             IpHelper::{
                 ResolveIpNetEntry2, IF_TYPE_ETHERNET_CSMACD, IF_TYPE_IEEE80211,
@@ -185,8 +183,7 @@ impl IphlpNetworkAdapterInfo {
     /// This function iterates over the `gateway_address_list` and resolves the hardware addresses
     /// by updating the `MIB_IPNET_ROW2` structure and calling the `ResolveIpNetEntry2` function.
     /// If successful, the hardware address is assigned to the `hardware_address` field of the
-    /// corresponding `Address` structure. If an error occurs, the function sets the last error
-    /// with `SetLastError`.
+    /// corresponding `Address` structure.
     ///
     /// # Safety
     ///
@@ -195,8 +192,6 @@ impl IphlpNetworkAdapterInfo {
     /// WinAPI functions are used correctly to ensure memory safety.
     ///
     unsafe fn initialize_gateway_hw_address_list(&mut self) {
-        SetLastError(WIN32_ERROR(STATUS_SUCCESS.0 as u32)); // set last error to success (not clear from the provided code what this does)
-
         if !self.gateway_address_list.is_empty() {
             // check if the address list is empty
             for address in &mut self.gateway_address_list {
@@ -224,14 +219,9 @@ impl IphlpNetworkAdapterInfo {
                 }
 
                 // resolve IP address to MAC address using the current row and store it in the address object
-                let error_code = unsafe { ResolveIpNetEntry2(&mut row, None) };
-                if error_code == NO_ERROR {
+                if unsafe { ResolveIpNetEntry2(&mut row, None) }.is_ok() {
                     address.hardware_address =
                         MacAddress::from_slice(&row.PhysicalAddress).unwrap_or_default();
-                // unwrap MAC address from physical hardware address
-                } else {
-                    // if an error occurs, set the last error to the error code
-                    unsafe { SetLastError(error_code) };
                 }
             }
         }
@@ -291,18 +281,12 @@ impl IphlpNetworkAdapterInfo {
                 )
             };
 
-            unsafe {
-                RegCloseKey(hkey); // close the registry key handle
-            }
+            _ = unsafe {
+                RegCloseKey(hkey) // close the registry key handle
+            };
         }
 
-        if result.is_ok() {
-            // if the registry value was successfully set
-            Ok(()) // return an Ok result
-        } else {
-            // if an error occurred
-            Err(result.into()) // return a wrapped error result
-        }
+        result
     }
 
     /// Checks if IP address information in the provided network_adapter_info is different

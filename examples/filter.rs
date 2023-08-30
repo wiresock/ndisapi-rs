@@ -652,9 +652,7 @@ fn main() -> Result<()> {
         // set atomic flag to exit the loop
         ctrlc_pressed.store(true, Ordering::SeqCst);
         // signal an event to release the loop if there are no packets in the queue
-        unsafe {
-            SetEvent(event);
-        }
+        let _ = unsafe { SetEvent(event) };
     })
     .expect("Error setting Ctrl-C handler");
 
@@ -707,9 +705,9 @@ fn main() -> Result<()> {
             }
         }
 
-        unsafe {
-            ResetEvent(event); // Reset the event to continue waiting for packets to arrive.
-        }
+        let _ = unsafe {
+            ResetEvent(event) // Reset the event to continue waiting for packets to arrive.
+        };
     }
 
     // Put the network interface into default mode.
@@ -718,9 +716,9 @@ fn main() -> Result<()> {
         FilterFlags::default(),
     )?;
 
-    unsafe {
-        CloseHandle(event); // Close the event handle.
-    }
+    let _ = unsafe {
+        CloseHandle(event) // Close the event handle.
+    };
 
     Ok(())
 }

@@ -11,11 +11,7 @@
 
 use std::mem::size_of;
 
-use windows::{
-    core::Result,
-    Win32::Foundation::{GetLastError, HANDLE},
-    Win32::System::IO::DeviceIoControl,
-};
+use windows::{core::Result, Win32::Foundation::HANDLE, Win32::System::IO::DeviceIoControl};
 
 use super::Ndisapi;
 use crate::driver::*;
@@ -33,7 +29,7 @@ impl Ndisapi {
     ///
     /// * `Result<()>`: If successful, returns `Ok(())`. Otherwise, returns an error.
     pub fn flush_adapter_packet_queue(&self, adapter_handle: HANDLE) -> Result<()> {
-        let result = unsafe {
+        match unsafe {
             DeviceIoControl(
                 self.driver_handle,
                 IOCTL_NDISRD_FLUSH_ADAPTER_QUEUE,
@@ -44,12 +40,9 @@ impl Ndisapi {
                 None,
                 None,
             )
-        };
-
-        if !result.as_bool() {
-            Err(unsafe { GetLastError() }.into())
-        } else {
-            Ok(())
+        } {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e),
         }
     }
 
@@ -67,7 +60,7 @@ impl Ndisapi {
     pub fn get_adapter_packet_queue_size(&self, adapter_handle: HANDLE) -> Result<u32> {
         let mut queue_size = 0u32;
 
-        let result = unsafe {
+        match unsafe {
             DeviceIoControl(
                 self.driver_handle,
                 IOCTL_NDISRD_ADAPTER_QUEUE_SIZE,
@@ -78,12 +71,9 @@ impl Ndisapi {
                 None,
                 None,
             )
-        };
-
-        if !result.as_bool() {
-            Err(unsafe { GetLastError() }.into())
-        } else {
-            Ok(queue_size)
+        } {
+            Ok(_) => Ok(queue_size),
+            Err(e) => Err(e),
         }
     }
 
@@ -99,7 +89,7 @@ impl Ndisapi {
     ///
     /// * `Result<()>`: If successful, returns `Ok(())`. Otherwise, returns an error.
     pub fn read_packet(&self, packet: &mut EthRequest) -> Result<()> {
-        let result = unsafe {
+        match unsafe {
             DeviceIoControl(
                 self.driver_handle,
                 IOCTL_NDISRD_READ_PACKET,
@@ -110,12 +100,9 @@ impl Ndisapi {
                 None,
                 None,
             )
-        };
-
-        if !result.as_bool() {
-            Err(unsafe { GetLastError() }.into())
-        } else {
-            Ok(())
+        } {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e),
         }
     }
 
@@ -132,7 +119,7 @@ impl Ndisapi {
     /// * `Result<usize>`: If successful, returns `Ok(packet_count)` where `packet_count` is the number of packets read
     ///   into `EthMRequest<N>`. Otherwise, returns an error.
     pub fn read_packets<const N: usize>(&self, packets: &mut EthMRequest<N>) -> Result<usize> {
-        let result = unsafe {
+        match unsafe {
             DeviceIoControl(
                 self.driver_handle,
                 IOCTL_NDISRD_READ_PACKETS,
@@ -143,12 +130,9 @@ impl Ndisapi {
                 None,
                 None,
             )
-        };
-
-        if result.as_bool() {
-            Ok(packets.get_packet_success() as usize)
-        } else {
-            Err(unsafe { GetLastError() }.into())
+        } {
+            Ok(_) => Ok(packets.get_packet_success() as usize),
+            Err(e) => Err(e),
         }
     }
 
@@ -163,7 +147,7 @@ impl Ndisapi {
     ///
     /// * `Result<()>`: If successful, returns `Ok(())`. Otherwise, returns an error.
     pub fn send_packet_to_adapter(&self, packet: &EthRequest) -> Result<()> {
-        let result = unsafe {
+        match unsafe {
             DeviceIoControl(
                 self.driver_handle,
                 IOCTL_NDISRD_SEND_PACKET_TO_ADAPTER,
@@ -174,12 +158,9 @@ impl Ndisapi {
                 None,
                 None,
             )
-        };
-
-        if !result.as_bool() {
-            Err(unsafe { GetLastError() }.into())
-        } else {
-            Ok(())
+        } {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e),
         }
     }
 
@@ -194,7 +175,7 @@ impl Ndisapi {
     ///
     /// * `Result<()>`: If successful, returns `Ok(())`. Otherwise, returns an error.
     pub fn send_packet_to_mstcp(&self, packet: &EthRequest) -> Result<()> {
-        let result = unsafe {
+        match unsafe {
             DeviceIoControl(
                 self.driver_handle,
                 IOCTL_NDISRD_SEND_PACKET_TO_MSTCP,
@@ -205,12 +186,9 @@ impl Ndisapi {
                 None,
                 None,
             )
-        };
-
-        if !result.as_bool() {
-            Err(unsafe { GetLastError() }.into())
-        } else {
-            Ok(())
+        } {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e),
         }
     }
 
@@ -225,7 +203,7 @@ impl Ndisapi {
     ///
     /// * `Result<()>`: If successful, returns `Ok(())`. Otherwise, returns an error.
     pub fn send_packets_to_adapter<const N: usize>(&self, packets: &EthMRequest<N>) -> Result<()> {
-        let result = unsafe {
+        match unsafe {
             DeviceIoControl(
                 self.driver_handle,
                 IOCTL_NDISRD_SEND_PACKETS_TO_ADAPTER,
@@ -236,12 +214,9 @@ impl Ndisapi {
                 None,
                 None,
             )
-        };
-
-        if !result.as_bool() {
-            Err(unsafe { GetLastError() }.into())
-        } else {
-            Ok(())
+        } {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e),
         }
     }
 
@@ -256,7 +231,7 @@ impl Ndisapi {
     ///
     /// * `Result<()>`: If successful, returns `Ok(())`. Otherwise, returns an error.
     pub fn send_packets_to_mstcp<const N: usize>(&self, packets: &EthMRequest<N>) -> Result<()> {
-        let result = unsafe {
+        match unsafe {
             DeviceIoControl(
                 self.driver_handle,
                 IOCTL_NDISRD_SEND_PACKETS_TO_MSTCP,
@@ -267,12 +242,9 @@ impl Ndisapi {
                 None,
                 None,
             )
-        };
-
-        if !result.as_bool() {
-            Err(unsafe { GetLastError() }.into())
-        } else {
-            Ok(())
+        } {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e),
         }
     }
 
@@ -293,7 +265,7 @@ impl Ndisapi {
             event_handle,
         };
 
-        let result = unsafe {
+        match unsafe {
             DeviceIoControl(
                 self.driver_handle,
                 IOCTL_NDISRD_SET_EVENT,
@@ -304,12 +276,9 @@ impl Ndisapi {
                 None,
                 None,
             )
-        };
-
-        if !result.as_bool() {
-            Err(unsafe { GetLastError() }.into())
-        } else {
-            Ok(())
+        } {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e),
         }
     }
 }

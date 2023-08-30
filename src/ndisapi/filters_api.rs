@@ -8,7 +8,7 @@
 
 use std::mem::size_of;
 
-use windows::{core::Result, Win32::Foundation::GetLastError, Win32::System::IO::DeviceIoControl};
+use windows::{core::Result, Win32::System::IO::DeviceIoControl};
 
 use super::Ndisapi;
 use crate::driver::*;
@@ -33,7 +33,7 @@ impl Ndisapi {
         &self,
         filter_table: &mut StaticFilterTable<N>,
     ) -> Result<()> {
-        let result = unsafe {
+        match unsafe {
             DeviceIoControl(
                 self.driver_handle,
                 IOCTL_NDISRD_GET_PACKET_FILTERS,
@@ -44,12 +44,9 @@ impl Ndisapi {
                 None,
                 None,
             )
-        };
-
-        if !result.as_bool() {
-            Err(unsafe { GetLastError() }.into())
-        } else {
-            Ok(())
+        } {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e),
         }
     }
 
@@ -72,7 +69,7 @@ impl Ndisapi {
         &self,
         filter_table: &mut StaticFilterTable<N>,
     ) -> Result<()> {
-        let result = unsafe {
+        match unsafe {
             DeviceIoControl(
                 self.driver_handle,
                 IOCTL_NDISRD_GET_PACKET_FILTERS_RESET_STATS,
@@ -83,12 +80,9 @@ impl Ndisapi {
                 None,
                 None,
             )
-        };
-
-        if !result.as_bool() {
-            Err(unsafe { GetLastError() }.into())
-        } else {
-            Ok(())
+        } {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e),
         }
     }
 
@@ -101,7 +95,7 @@ impl Ndisapi {
     pub fn get_packet_filter_table_size(&self) -> Result<usize> {
         let mut size = 0u32;
 
-        let result = unsafe {
+        match unsafe {
             DeviceIoControl(
                 self.driver_handle,
                 IOCTL_NDISRD_GET_PACKET_FILTERS_TABLESIZE,
@@ -112,12 +106,9 @@ impl Ndisapi {
                 None,
                 None,
             )
-        };
-
-        if !result.as_bool() {
-            Err(unsafe { GetLastError() }.into())
-        } else {
-            Ok(size as usize)
+        } {
+            Ok(_) => Ok(size as usize),
+            Err(e) => Err(e),
         }
     }
 
@@ -128,7 +119,7 @@ impl Ndisapi {
     ///
     /// * `Result<()>`: If successful, returns `Ok(())`. Otherwise, returns an error.
     pub fn reset_packet_filter_table(&self) -> Result<()> {
-        let result = unsafe {
+        match unsafe {
             DeviceIoControl(
                 self.driver_handle,
                 IOCTL_NDISRD_RESET_PACKET_FILTERS,
@@ -139,12 +130,9 @@ impl Ndisapi {
                 None,
                 None,
             )
-        };
-
-        if !result.as_bool() {
-            Err(unsafe { GetLastError() }.into())
-        } else {
-            Ok(())
+        } {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e),
         }
     }
 
@@ -166,7 +154,7 @@ impl Ndisapi {
         &self,
         filter_table: &StaticFilterTable<N>,
     ) -> Result<()> {
-        let result = unsafe {
+        match unsafe {
             DeviceIoControl(
                 self.driver_handle,
                 IOCTL_NDISRD_SET_PACKET_FILTERS,
@@ -177,12 +165,9 @@ impl Ndisapi {
                 None,
                 None,
             )
-        };
-
-        if !result.as_bool() {
-            Err(unsafe { GetLastError() }.into())
-        } else {
-            Ok(())
+        } {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e),
         }
     }
 }

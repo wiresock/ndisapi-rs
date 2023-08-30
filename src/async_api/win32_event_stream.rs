@@ -36,7 +36,7 @@ use std::{
 use windows::{
     core::Result,
     Win32::{
-        Foundation::{CloseHandle, GetLastError, BOOLEAN, HANDLE},
+        Foundation::{CloseHandle, BOOLEAN, HANDLE},
         System::Threading::{
             RegisterWaitForSingleObject, ResetEvent, UnregisterWaitEx, INFINITE,
             WT_EXECUTEINWAITTHREAD,
@@ -69,7 +69,7 @@ impl Win32EventStream {
                 Box::new(move |_| {
                     ready.store(true, Ordering::SeqCst);
                     waker.wake();
-                    unsafe { ResetEvent(event_handle) };
+                    let _ = unsafe { ResetEvent(event_handle) };
                 }),
             )?,
         })
@@ -142,15 +142,16 @@ impl Win32EventNotification {
         };
 
         // Check if the registration was successful.
-        if rc.as_bool() {
-            Ok(Self {
+        match rc {
+            Ok(_) => Ok(Self {
                 callback,
                 win32_event,
                 wait_object,
-            })
-        } else {
-            drop(unsafe { Box::from_raw(callback) }); // Dropping the callback function.
-            Err(unsafe { GetLastError() }.into())
+            }),
+            Err(e) => {
+                drop(unsafe { Box::from_raw(callback) }); // Dropping the callback function.
+                Err(e)
+            }
         }
     }
 }
@@ -160,16 +161,16 @@ impl Drop for Win32EventNotification {
     fn drop(&mut self) {
         unsafe {
             // Deregistering the wait object.
-            if !UnregisterWaitEx(self.wait_object, self.win32_event).as_bool() {
+            if UnregisterWaitEx(self.wait_object, self.win32_event).is_err() {
                 //log::error!("error deregistering notification: {}", GetLastError);
             }
             drop(Box::from_raw(self.callback)); // Dropping the callback function.
         }
 
-        unsafe {
+        let _ = unsafe {
             // Closing the handle to the event.
-            CloseHandle(self.win32_event);
-        }
+            CloseHandle(self.win32_event)
+        };
     }
 }
 

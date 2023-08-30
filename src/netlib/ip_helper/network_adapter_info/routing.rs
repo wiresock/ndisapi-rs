@@ -6,7 +6,7 @@ use windows::Win32::NetworkManagement::IpHelper::{
 };
 use windows::Win32::Networking::WinSock::AF_UNSPEC;
 use windows::Win32::{
-    Foundation::{SetLastError, ERROR_OBJECT_ALREADY_EXISTS, ERROR_SUCCESS, NO_ERROR},
+    Foundation::ERROR_OBJECT_ALREADY_EXISTS,
     NetworkManagement::IpHelper::{
         CreateIpForwardEntry2, InitializeIpForwardEntry, MIB_IPFORWARD_ROW2,
     },
@@ -59,12 +59,13 @@ impl IphlpNetworkAdapterInfo {
                 forward_row.Protocol = MIB_IPPROTO_NT_STATIC;
                 forward_row.Origin = NlroManual;
 
-                let error_code = unsafe { CreateIpForwardEntry2(&forward_row) };
-
-                if error_code == NO_ERROR || error_code == ERROR_OBJECT_ALREADY_EXISTS {
-                    ret_val.push_back(forward_row);
-                } else {
-                    unsafe { SetLastError(error_code) };
+                match unsafe { CreateIpForwardEntry2(&forward_row) } {
+                    Ok(_) => ret_val.push_back(forward_row),
+                    Err(err) => {
+                        if err == ERROR_OBJECT_ALREADY_EXISTS.into() {
+                            ret_val.push_back(forward_row);
+                        }
+                    }
                 }
             }
         }
@@ -110,10 +111,13 @@ impl IphlpNetworkAdapterInfo {
                 forward_row.Protocol = MIB_IPPROTO_NT_STATIC;
                 forward_row.Origin = NlroManual;
 
-                let status = unsafe { CreateIpForwardEntry2(&forward_row) };
-
-                if status == NO_ERROR || status == ERROR_OBJECT_ALREADY_EXISTS {
-                    return_value.push_back(forward_row);
+                match unsafe { CreateIpForwardEntry2(&forward_row) } {
+                    Ok(_) => return_value.push_back(forward_row),
+                    Err(err) => {
+                        if err == ERROR_OBJECT_ALREADY_EXISTS.into() {
+                            return_value.push_back(forward_row);
+                        }
+                    }
                 }
             }
         }
@@ -136,16 +140,7 @@ impl IphlpNetworkAdapterInfo {
     /// This function uses an unsafe Windows API call to delete IP forward entries.
     /// The caller should ensure that the provided MIB_IPFORWARD_ROW2 reference is valid before calling this function.
     pub fn delete_route(address: &MIB_IPFORWARD_ROW2) -> bool {
-        unsafe { SetLastError(ERROR_SUCCESS) };
-
-        let error_code = unsafe { DeleteIpForwardEntry2(address) };
-
-        if error_code == NO_ERROR {
-            true
-        } else {
-            unsafe { SetLastError(error_code) };
-            false
-        }
+        unsafe { DeleteIpForwardEntry2(address) }.is_ok()
     }
 
     /// Deletes routing table entries by MIB_IPFORWARD_ROW2 references.
@@ -165,15 +160,8 @@ impl IphlpNetworkAdapterInfo {
     pub fn delete_routes(addresses: &mut [MIB_IPFORWARD_ROW2]) -> bool {
         let mut status = true;
 
-        unsafe { SetLastError(ERROR_SUCCESS) };
-
         for address in addresses.iter() {
-            let error_code = unsafe { DeleteIpForwardEntry2(address) };
-
-            if error_code != NO_ERROR {
-                status = false;
-                unsafe { SetLastError(error_code) };
-            }
+            status = unsafe { DeleteIpForwardEntry2(address) }.is_ok()
         }
 
         status
@@ -193,25 +181,22 @@ impl IphlpNetworkAdapterInfo {
     pub fn reset_adapter_routes(&self) -> bool {
         let mut table: *mut MIB_IPFORWARD_TABLE2 = std::ptr::null_mut();
 
-        let error_code = unsafe { GetIpForwardTable2(AF_UNSPEC, &mut table) };
+        match unsafe { GetIpForwardTable2(AF_UNSPEC, &mut table) } {
+            Ok(_) => {
+                let num_entries = unsafe { (*table).NumEntries };
 
-        if error_code == NO_ERROR {
-            let num_entries = unsafe { (*table).NumEntries };
+                for i in 0..num_entries {
+                    let entry = unsafe { &mut (*table).Table[i as usize] };
 
-            for i in 0..num_entries {
-                let entry = unsafe { &mut (*table).Table[i as usize] };
-
-                if IfLuid::from(entry.InterfaceLuid) == self.luid {
-                    unsafe { DeleteIpForwardEntry2(entry) };
+                    if IfLuid::from(entry.InterfaceLuid) == self.luid {
+                        let _ = unsafe { DeleteIpForwardEntry2(entry) };
+                    }
                 }
+
+                let _ = unsafe { FreeMibTable(table as *mut _) };
+                true
             }
-
-            unsafe { FreeMibTable(table as *mut _) };
-            return true;
-        } else {
-            unsafe { SetLastError(error_code) };
+            Err(_) => false,
         }
-
-        false
     }
 }
