@@ -11,6 +11,11 @@
 //! * [`net`] - Provides a set of networking utilities for Rust. This includes a type for
 //! representing MAC addresses.
 
+// Allowing unused imports in this module because they are re-exports
+// intended for end users of the library. These imports are not directly
+// used within the module but are exposed as part of the library's public API.
+#![allow(unused_imports)]
+
 // Submodules
 pub mod ip_helper;
 pub mod net;
