@@ -114,7 +114,7 @@ impl Eq for IfLuid {}
 /// `IfLuid` instances are ordered based on their `Value` fields.
 impl PartialOrd for IfLuid {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        unsafe { self.0.Value.partial_cmp(&other.0.Value) }
+        Some(self.cmp(other))
     }
 }
 
