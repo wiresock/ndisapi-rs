@@ -25,13 +25,17 @@ mod ndisapi;
 mod netlib;
 
 pub use crate::ndisapi::{
-    DirectionFlags, Eth802_3FilterFlags, EthMRequest, EthPacket, EthRequest, FastIoSection,
-    FastIoSectionHeader, FilterFlags, FilterLayerFlags, IcmpFilterFlags, IntermediateBuffer,
-    IpV4FilterFlags, IpV6FilterFlags, Ndisapi, NetworkAdapterInfo, PacketOidData, RasLinks,
-    StaticFilter, StaticFilterTable, TcpUdpFilterFlags, UnsortedReadSendRequest, Version,
-    ETHER_ADDR_LENGTH, ETH_802_3, FILTER_PACKET_DROP, FILTER_PACKET_DROP_RDR, FILTER_PACKET_PASS,
-    FILTER_PACKET_PASS_RDR, FILTER_PACKET_REDIRECT, ICMP, IPV4, IPV6, IP_RANGE_V4_TYPE,
-    IP_RANGE_V6_TYPE, IP_SUBNET_V4_TYPE, IP_SUBNET_V6_TYPE, TCPUDP,
+    ByteRange, DataLinkLayerFilter, DataLinkLayerFilterUnion, DirectionFlags, Eth8023Filter,
+    Eth802_3FilterFlags, EthMRequest, EthPacket, EthRequest, FastIoSection, FastIoSectionHeader,
+    FilterFlags, FilterLayerFlags, IcmpFilter, IcmpFilterFlags, IntermediateBuffer, IpAddressV4,
+    IpAddressV4Union, IpAddressV6, IpAddressV6Union, IpRangeV4, IpRangeV6, IpSubnetV4, IpSubnetV6,
+    IpV4Filter, IpV4FilterFlags, IpV6Filter, IpV6FilterFlags, Ndisapi, NetworkAdapterInfo,
+    NetworkLayerFilter, NetworkLayerFilterUnion, PacketOidData, PortRange, RasLinks, StaticFilter,
+    StaticFilterTable, TcpUdpFilter, TcpUdpFilterFlags, TransportLayerFilter,
+    TransportLayerFilterUnion, UnsortedReadSendRequest, Version, ETHER_ADDR_LENGTH, ETH_802_3,
+    FILTER_PACKET_DROP, FILTER_PACKET_DROP_RDR, FILTER_PACKET_PASS, FILTER_PACKET_PASS_RDR,
+    FILTER_PACKET_REDIRECT, ICMP, IPV4, IPV6, IP_RANGE_V4_TYPE, IP_RANGE_V6_TYPE,
+    IP_SUBNET_V4_TYPE, IP_SUBNET_V6_TYPE, TCPUDP,
 };
 
 pub use crate::async_api::AsyncNdisapiAdapter;
