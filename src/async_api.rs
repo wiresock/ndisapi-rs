@@ -186,14 +186,15 @@ impl AsyncNdisapiAdapter {
     /// # Returns
     ///
     /// Returns `Ok(usize)` if packets are successfully read from the network adapter, where `usize` is the number of packets read.
-    pub async fn read_packets<'a, const N: usize, I>(&mut self, packets: I) -> Result<usize>
-    where
-        I: Iterator<Item = &'a mut IntermediateBuffer>,
-    {
+    pub async fn read_packets<'a, const N: usize>(
+        &mut self,
+        packets: impl IntoIterator<Item = &'a mut IntermediateBuffer>,
+    ) -> Result<usize> {
         let driver = self.driver.clone();
 
         // Initialize EthMPacket to pass to driver API.
-        let mut request = ndisapi::EthMRequest::<N>::from_iter(self.adapter_handle, packets);
+        let mut request =
+            ndisapi::EthMRequest::<N>::from_iter(self.adapter_handle, packets.into_iter());
 
         // first try to read packets
         if driver.read_packets(&mut request).is_ok() {
@@ -277,12 +278,13 @@ impl AsyncNdisapiAdapter {
     /// # Returns
     ///
     /// On successful operation, this function returns an `Ok(usize)` that represents the number of packets successfully sent to the network adapter. If the operation fails, an error is returned.
-    pub fn send_packets_to_adapter<'a, const N: usize, I>(&mut self, packets: I) -> Result<usize>
-    where
-        I: Iterator<Item = &'a mut IntermediateBuffer>,
-    {
+    pub fn send_packets_to_adapter<'a, const N: usize>(
+        &mut self,
+        packets: impl IntoIterator<Item = &'a mut IntermediateBuffer>,
+    ) -> Result<usize> {
         // Initialize EthMPacket to pass to driver API.
-        let request = ndisapi::EthMRequest::<N>::from_iter(self.adapter_handle, packets);
+        let request =
+            ndisapi::EthMRequest::<N>::from_iter(self.adapter_handle, packets.into_iter());
 
         // Try to send packets to the network adapter.
         match self.driver.send_packets_to_adapter(&request) {
@@ -345,12 +347,13 @@ impl AsyncNdisapiAdapter {
     /// # Returns
     ///
     /// On successful operation, this function returns `Ok(usize)`, where `usize` is the number of packets sent. If the operation fails, an error is returned.
-    pub fn send_packets_to_mstcp<'a, const N: usize, I>(&mut self, packets: I) -> Result<usize>
-    where
-        I: Iterator<Item = &'a mut IntermediateBuffer>,
-    {
+    pub fn send_packets_to_mstcp<'a, const N: usize>(
+        &mut self,
+        packets: impl IntoIterator<Item = &'a mut IntermediateBuffer>,
+    ) -> Result<usize> {
         // Initialize EthMPacket to pass to driver API.
-        let request = ndisapi::EthMRequest::<N>::from_iter(self.adapter_handle, packets);
+        let request =
+            ndisapi::EthMRequest::<N>::from_iter(self.adapter_handle, packets.into_iter());
 
         // Try to send packets upwards the network stack.
         match self.driver.send_packets_to_mstcp(&request) {
