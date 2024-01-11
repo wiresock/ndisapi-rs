@@ -49,17 +49,17 @@ pub struct TcpAdapterList {
 /// The `ListEntry` structure is the Rust equivalent of the
 /// [_LIST_ENTRY](https://learn.microsoft.com/en-us/windows/win32/api/ntdef/ns-ntdef-list_entry)
 /// structure in the Windows API. It represents a doubly-linked list entry, containing forward and backward
-/// pointers to adjacent list entries.
+/// links to adjacent list entries.
 ///
 /// # Fields
 ///
-/// * `flink`: A mutable raw pointer to the next `ListEntry` in the list (forward link).
-/// * `blink`: A mutable raw pointer to the previous `ListEntry` in the list (backward link).
+/// * `flink`: A usize representing the memory address of the next `ListEntry` in the list (forward link).
+/// * `blink`: A usize representing the memory address of the previous `ListEntry` in the list (backward link).
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct ListEntry {
-    pub flink: *mut ListEntry,
-    pub blink: *mut ListEntry,
+    pub flink: usize,
+    pub blink: usize,
 }
 
 /// The `IntermediateBufferHeaderUnion` structure is the Rust equivalent of the union

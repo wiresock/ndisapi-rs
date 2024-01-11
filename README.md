@@ -28,7 +28,7 @@ Add the following to your `Cargo.toml` file:
 
 ```toml
 [dependencies]
-ndisapi = "0.5.2"
+ndisapi = "0.5.5"
 ```
 
 ## Usage
@@ -67,11 +67,10 @@ For more examples and in-depth usage, check out the [documentation](https://docs
 Here is an example of how to run the `listadapters` example:
 
 ```bash
-PS D:\github.com\ndisapi-rs> cargo run --example listadapters
-   Compiling ndisapi v0.5.2 (D:\github.com\ndisapi-rs)
-    Finished dev [unoptimized + debuginfo] target(s) in 3.22s
+S D:\github.com\ndisapi-rs> cargo run --example listadapters
+    Finished dev [unoptimized + debuginfo] target(s) in 0.12s
      Running `target\debug\examples\listadapters.exe`
-Detected Windows Packet Filter version 3.4.3
+Detected Windows Packet Filter version 3.4.8
 1. Local Area Connection* 10
         \DEVICE\{EDEE8C42-F604-4A7B-BFAA-6B110923217E}
          Medium: 0
@@ -81,16 +80,15 @@ Detected Windows Packet Filter version 3.4.3
 Getting OID_GEN_CURRENT_PACKET_FILTER Error: Data error (cyclic redundancy check).
          OID_802_3_CURRENT_ADDRESS: 9A:47:3D:60:26:9D
 2. vEthernet (Default Switch)
-        \DEVICE\{6FE04972-B2B5-4F5C-97E6-B8518A017192}
+        \DEVICE\{BD64DB34-23DF-45C4-909E-780272A98BAE}
          Medium: 0
-         MAC: 00:15:5D:91:A3:15
+         MAC: 00:15:5D:01:8C:00
          MTU: 1500
          FilterFlags: FilterFlags(0x0)
          OID_GEN_CURRENT_PACKET_FILTER: 0x0000000B
-         OID_802_3_CURRENT_ADDRESS: 00:15:5D:91:A3:15
+         OID_802_3_CURRENT_ADDRESS: 00:15:5D:01:8C:00
 ...
-
-12. vEthernet (WLAN Virtual Switch)
+11. vEthernet (WLAN Virtual Switch)
         \DEVICE\{05F9267C-C548-4822-8535-9A57F1A99DB7}
          Medium: 0
          MAC: 18:47:3D:60:26:9D
@@ -99,83 +97,25 @@ Getting OID_GEN_CURRENT_PACKET_FILTER Error: Data error (cyclic redundancy check
          OID_GEN_CURRENT_PACKET_FILTER: 0x0000000B
          OID_802_3_CURRENT_ADDRESS: 18:47:3D:60:26:9D
 
+System wide MTU decrement: 0
+
+System wide network adapter startup filter mode: 0
+
+Driver intermediate buffer pool size multiplier: 0
+
+Effective intermediate buffer pool size: 2048
+
 ```
 
 Following is the demonstration of the async-packthru example. For this scenario, we will assume that `vEthernet (WLAN Virtual Switch)` is the default internet connection
 
 ```bash
-PS D:\github.com\ndisapi-rs> cargo run --example async-packthru -- --interface-index 12
+PS D:\github.com\ndisapi-rs> cargo run --example async-packthru -- --interface-index 11
     Finished dev [unoptimized + debuginfo] target(s) in 0.11s
-     Running `target\debug\examples\async-packthru.exe --interface-index 12`
-Detected Windows Packet Filter version 3.4.3
+     Running `target\debug\examples\async-packthru.exe --interface-index 11`
+Detected Windows Packet Filter version 3.4.8
 Using interface \DEVICE\{05F9267C-C548-4822-8535-9A57F1A99DB7}
 Press ENTER to exit
-=======================================================================================================
-
-Interface --> MSTCP (93 bytes)
-
-  Ipv4 Address([142, 250, 102, 108]) => Address([192, 168, 3, 126])
-   TCP 993 -> 54163
-=======================================================================================================
-
-MSTCP --> Interface (89 bytes)
-
-  Ipv4 Address([192, 168, 3, 126]) => Address([142, 250, 102, 108])
-   TCP 54163 -> 993
-=======================================================================================================
-
-Interface --> MSTCP (60 bytes)
-
-  Ipv4 Address([142, 250, 102, 108]) => Address([192, 168, 3, 126])
-   TCP 993 -> 54163
-=======================================================================================================
-
-Interface --> MSTCP (202 bytes)
-
-  Ipv4 Address([192, 168, 3, 105]) => Address([224, 0, 0, 251])
-   UDP 5353 -> 5353
-
-Interface --> MSTCP (222 bytes)
-
-  Ipv6 Address([254, 128, 0, 0, 0, 0, 0, 0, 18, 44, 107, 255, 254, 84, 37, 126]) => Address([255, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 251])
-   UDP 5353 -> 5353
-=======================================================================================================
-
-Interface --> MSTCP (118 bytes)
-
-  Ipv4 Address([142, 250, 102, 108]) => Address([192, 168, 3, 126])
-   TCP 993 -> 54163
-=======================================================================================================
-
-MSTCP --> Interface (115 bytes)
-
-  Ipv4 Address([192, 168, 3, 126]) => Address([142, 250, 102, 108])
-   TCP 54163 -> 993
-=======================================================================================================
-
-Interface --> MSTCP (60 bytes)
-
-  Ipv4 Address([142, 250, 102, 108]) => Address([192, 168, 3, 126])
-   TCP 993 -> 54163
-=======================================================================================================
-
-MSTCP --> Interface (74 bytes)
-
-  Ipv4 Address([192, 168, 3, 126]) => Address([158, 255, 51, 217])
-   UDP 63616 -> 59999
-=======================================================================================================
-
-Interface --> MSTCP (80 bytes)
-
-  Ipv4 Address([192, 168, 3, 105]) => Address([224, 0, 0, 251])
-   UDP 5353 -> 5353
-
-Interface --> MSTCP (100 bytes)
-
-  Ipv6 Address([254, 128, 0, 0, 0, 0, 0, 0, 18, 44, 107, 255, 254, 84, 37, 126]) => Address([255, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 251])
-   UDP 5353 -> 5353
-
-Shutting down...
 ```
 
 ## License
