@@ -431,10 +431,7 @@ async fn async_loop(adapter: &mut AsyncNdisapiAdapter, tx: mpsc::Sender<PacketIn
 
     loop {
         // Read packets from the adapter.
-        let packets_read = match adapter
-            .read_packets::<PACKET_NUMBER, _>(ibs.iter_mut())
-            .await
-        {
+        let packets_read = match adapter.read_packets::<PACKET_NUMBER>(&mut ibs).await {
             Ok(packets_read) => {
                 if packets_read == 0 {
                     println!("No packets read. Continue reading.");
@@ -462,12 +459,12 @@ async fn async_loop(adapter: &mut AsyncNdisapiAdapter, tx: mpsc::Sender<PacketIn
             .partition(|ib| ib.get_device_flags() == DirectionFlags::PACKET_FLAG_ON_SEND);
 
         // Re-inject packets back into the network stack
-        match adapter.send_packets_to_adapter::<PACKET_NUMBER, _>(send_packets.into_iter()) {
+        match adapter.send_packets_to_adapter::<PACKET_NUMBER>(send_packets) {
             Ok(_) => {}
             Err(err) => println!("Error sending packet to adapter. Error code = {err}"),
         }
 
-        match adapter.send_packets_to_mstcp::<PACKET_NUMBER, _>(receive_packets.into_iter()) {
+        match adapter.send_packets_to_mstcp::<PACKET_NUMBER>(receive_packets) {
             Ok(_) => {}
             Err(err) => println!("Error sending packet to adapter. Error code = {err}"),
         }
