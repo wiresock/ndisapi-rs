@@ -67,7 +67,7 @@ impl IphlpNetworkAdapterInfo {
         address_row.DadState = IpDadStatePreferred;
 
         // Call the CreateUnicastIpAddressEntry function (you need to implement this function)
-        match unsafe { CreateUnicastIpAddressEntry(&address_row) } {
+        match unsafe { CreateUnicastIpAddressEntry(&address_row).ok() } {
             Ok(_) => Some(address_row),
             Err(err) => {
                 if err == ERROR_OBJECT_ALREADY_EXISTS.into() {
@@ -130,7 +130,7 @@ impl IphlpNetworkAdapterInfo {
         address_row.OnLinkPrefixLength = prefix_length;
         address_row.DadState = IpDadStatePreferred;
 
-        match unsafe { CreateUnicastIpAddressEntry(&address_row) } {
+        match unsafe { CreateUnicastIpAddressEntry(&address_row) }.ok() {
             Ok(_) => Some(address_row),
             Err(err) => {
                 if err == ERROR_OBJECT_ALREADY_EXISTS.into() {
@@ -180,7 +180,7 @@ impl IphlpNetworkAdapterInfo {
     pub fn reset_unicast_addresses(&self) -> bool {
         let mut table: *mut MIB_UNICASTIPADDRESS_TABLE = std::ptr::null_mut();
 
-        match unsafe { GetUnicastIpAddressTable(AF_UNSPEC, &mut table) } {
+        match unsafe { GetUnicastIpAddressTable(AF_UNSPEC, &mut table) }.ok() {
             Ok(_) => {
                 for i in 0..unsafe { (*table).NumEntries } {
                     let entry = unsafe { &mut (*table).Table[i as usize] };
@@ -213,7 +213,7 @@ impl IphlpNetworkAdapterInfo {
     pub fn delete_unicast_address_ipv4(&self, address: Ipv4Addr) -> bool {
         let mut table: *mut MIB_UNICASTIPADDRESS_TABLE = std::ptr::null_mut();
 
-        match unsafe { GetUnicastIpAddressTable(AF_INET, &mut table) } {
+        match unsafe { GetUnicastIpAddressTable(AF_INET, &mut table) }.ok() {
             Ok(_) => {
                 for i in 0..unsafe { (*table).NumEntries } {
                     let entry = unsafe { &(*table).Table[i as usize] };
@@ -252,7 +252,7 @@ impl IphlpNetworkAdapterInfo {
     pub fn delete_unicast_address_ipv6(&self, address: Ipv6Addr) -> bool {
         let mut table: *mut MIB_UNICASTIPADDRESS_TABLE = std::ptr::null_mut();
 
-        match unsafe { GetUnicastIpAddressTable(AF_INET6, &mut table) } {
+        match unsafe { GetUnicastIpAddressTable(AF_INET6, &mut table) }.ok() {
             Ok(_) => {
                 for i in 0..unsafe { (*table).NumEntries } {
                     let entry = unsafe { &(*table).Table[i as usize] };

@@ -47,7 +47,7 @@ impl IphlpNetworkAdapterInfo {
             set_is_unreachable(&mut net_row, true);
         }
 
-        match unsafe { CreateIpNetEntry2(&net_row) } {
+        match unsafe { CreateIpNetEntry2(&net_row) }.ok() {
             Ok(_) => Some(net_row),
             Err(err) => {
                 if err == ERROR_OBJECT_ALREADY_EXISTS.into() {
@@ -99,7 +99,7 @@ impl IphlpNetworkAdapterInfo {
             set_is_unreachable(&mut net_row, true);
         }
 
-        match unsafe { CreateIpNetEntry2(&net_row) } {
+        match unsafe { CreateIpNetEntry2(&net_row) }.ok() {
             Ok(_) => Some(net_row),
             Err(err) => {
                 if err == ERROR_OBJECT_ALREADY_EXISTS.into() {

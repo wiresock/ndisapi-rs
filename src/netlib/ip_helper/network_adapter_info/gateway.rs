@@ -41,7 +41,7 @@ impl IphlpNetworkAdapterInfo {
         forward_row.Protocol = MIB_IPPROTO_NT_STATIC;
         forward_row.Origin = NlroManual;
 
-        match unsafe { CreateIpForwardEntry2(&forward_row) } {
+        match unsafe { CreateIpForwardEntry2(&forward_row) }.ok() {
             Ok(_) => Some(forward_row),
             Err(err) => {
                 if err == ERROR_OBJECT_ALREADY_EXISTS.into() {
@@ -88,7 +88,7 @@ impl IphlpNetworkAdapterInfo {
         forward_row.Protocol = MIB_IPPROTO_NT_STATIC;
         forward_row.Origin = NlroManual;
 
-        match unsafe { CreateIpForwardEntry2(&forward_row) } {
+        match unsafe { CreateIpForwardEntry2(&forward_row) }.ok() {
             Ok(_) => Some(forward_row),
             Err(err) => {
                 if err == ERROR_OBJECT_ALREADY_EXISTS.into() {
@@ -131,7 +131,7 @@ impl IphlpNetworkAdapterInfo {
         forward_row.Protocol = MIB_IPPROTO_NT_STATIC;
         forward_row.Origin = NlroManual;
 
-        match unsafe { CreateIpForwardEntry2(&forward_row) } {
+        match unsafe { CreateIpForwardEntry2(&forward_row) }.ok() {
             Ok(_) => Some(forward_row),
             Err(err) => {
                 if err == ERROR_OBJECT_ALREADY_EXISTS.into() {
@@ -174,7 +174,7 @@ impl IphlpNetworkAdapterInfo {
         forward_row.Protocol = MIB_IPPROTO_NT_STATIC;
         forward_row.Origin = NlroManual;
 
-        match unsafe { CreateIpForwardEntry2(&forward_row) } {
+        match unsafe { CreateIpForwardEntry2(&forward_row) }.ok() {
             Ok(_) => Some(forward_row),
             Err(err) => {
                 if err == ERROR_OBJECT_ALREADY_EXISTS.into() {
