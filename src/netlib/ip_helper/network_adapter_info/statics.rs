@@ -117,7 +117,7 @@ impl IphlpNetworkAdapterInfo {
         }
 
         // Free interface table
-        let _ = unsafe { FreeMibTable(mib_table as *const core::ffi::c_void) };
+        unsafe { FreeMibTable(mib_table as *const core::ffi::c_void) };
 
         ret_val
     }
@@ -196,8 +196,7 @@ impl IphlpNetworkAdapterInfo {
                             if IfLuid::from(unsafe { (*entry_ptr).InterfaceLuid }) == luid {
                                 let result =
                                     unsafe { IphlpNetworkAdapterInfo::new(current, entry_ptr) };
-                                let _ =
-                                    unsafe { FreeMibTable(mib_table as *const core::ffi::c_void) };
+                                unsafe { FreeMibTable(mib_table as *const core::ffi::c_void) };
                                 return Some(result);
                             }
                         }
@@ -221,7 +220,7 @@ impl IphlpNetworkAdapterInfo {
         }
 
         // Free interface table
-        let _ = unsafe { FreeMibTable(mib_table as *const core::ffi::c_void) };
+        unsafe { FreeMibTable(mib_table as *const core::ffi::c_void) };
 
         None
     }
@@ -304,8 +303,7 @@ impl IphlpNetworkAdapterInfo {
                             {
                                 let result =
                                     unsafe { IphlpNetworkAdapterInfo::new(current, entry_ptr) };
-                                let _ =
-                                    unsafe { FreeMibTable(mib_table as *const core::ffi::c_void) };
+                                unsafe { FreeMibTable(mib_table as *const core::ffi::c_void) };
                                 return Some(result);
                             }
                         }
@@ -329,7 +327,7 @@ impl IphlpNetworkAdapterInfo {
         }
 
         // Free interface table
-        let _ = unsafe { FreeMibTable(mib_table as *const core::ffi::c_void) };
+        unsafe { FreeMibTable(mib_table as *const core::ffi::c_void) };
 
         None
     }
@@ -414,8 +412,7 @@ impl IphlpNetworkAdapterInfo {
                             {
                                 let result =
                                     unsafe { IphlpNetworkAdapterInfo::new(current, entry_ptr) };
-                                let _ =
-                                    unsafe { FreeMibTable(mib_table as *const core::ffi::c_void) };
+                                unsafe { FreeMibTable(mib_table as *const core::ffi::c_void) };
                                 return Some(result);
                             }
                         }
@@ -439,7 +436,7 @@ impl IphlpNetworkAdapterInfo {
         }
 
         // Free interface table
-        let _ = unsafe { FreeMibTable(mib_table as *const core::ffi::c_void) };
+        unsafe { FreeMibTable(mib_table as *const core::ffi::c_void) };
 
         None
     }

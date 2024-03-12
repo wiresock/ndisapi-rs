@@ -193,7 +193,7 @@ impl IphlpNetworkAdapterInfo {
                     }
                 }
 
-                let _ = unsafe { FreeMibTable(table as *mut _) };
+                unsafe { FreeMibTable(table as *mut _) };
                 true
             }
             Err(_) => false,
