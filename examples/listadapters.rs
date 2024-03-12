@@ -48,7 +48,7 @@ fn main() -> Result<()> {
         match driver.get_hw_packet_filter(adapter.get_handle()) {
             Err(err) => println!(
                 "Getting OID_GEN_CURRENT_PACKET_FILTER Error: {}",
-                err.message().to_string_lossy()
+                err.message()
             ),
             Ok(current_packet_filter) => {
                 println!("\t OID_GEN_CURRENT_PACKET_FILTER: 0x{current_packet_filter:08X}")
@@ -62,10 +62,7 @@ fn main() -> Result<()> {
             MacAddress::default(),
         );
         if let Err(err) = driver.ndis_get_request::<_>(&mut current_address_request) {
-            println!(
-                "Getting OID_802_3_CURRENT_ADDRESS Error: {}",
-                err.message().to_string_lossy()
-            )
+            println!("Getting OID_802_3_CURRENT_ADDRESS Error: {}", err.message(),)
         } else {
             println!(
                 "\t OID_802_3_CURRENT_ADDRESS: {}",

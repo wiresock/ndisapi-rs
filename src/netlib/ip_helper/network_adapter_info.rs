@@ -286,7 +286,7 @@ impl IphlpNetworkAdapterInfo {
             };
         }
 
-        result
+        result.ok()
     }
 
     /// Checks if IP address information in the provided network_adapter_info is different

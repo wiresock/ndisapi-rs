@@ -59,7 +59,7 @@ impl IphlpNetworkAdapterInfo {
                 forward_row.Protocol = MIB_IPPROTO_NT_STATIC;
                 forward_row.Origin = NlroManual;
 
-                match unsafe { CreateIpForwardEntry2(&forward_row) } {
+                match unsafe { CreateIpForwardEntry2(&forward_row) }.ok() {
                     Ok(_) => ret_val.push_back(forward_row),
                     Err(err) => {
                         if err == ERROR_OBJECT_ALREADY_EXISTS.into() {
@@ -111,7 +111,7 @@ impl IphlpNetworkAdapterInfo {
                 forward_row.Protocol = MIB_IPPROTO_NT_STATIC;
                 forward_row.Origin = NlroManual;
 
-                match unsafe { CreateIpForwardEntry2(&forward_row) } {
+                match unsafe { CreateIpForwardEntry2(&forward_row) }.ok() {
                     Ok(_) => return_value.push_back(forward_row),
                     Err(err) => {
                         if err == ERROR_OBJECT_ALREADY_EXISTS.into() {
@@ -181,7 +181,7 @@ impl IphlpNetworkAdapterInfo {
     pub fn reset_adapter_routes(&self) -> bool {
         let mut table: *mut MIB_IPFORWARD_TABLE2 = std::ptr::null_mut();
 
-        match unsafe { GetIpForwardTable2(AF_UNSPEC, &mut table) } {
+        match unsafe { GetIpForwardTable2(AF_UNSPEC, &mut table) }.ok() {
             Ok(_) => {
                 let num_entries = unsafe { (*table).NumEntries };
 
@@ -193,7 +193,7 @@ impl IphlpNetworkAdapterInfo {
                     }
                 }
 
-                let _ = unsafe { FreeMibTable(table as *mut _) };
+                unsafe { FreeMibTable(table as *mut _) };
                 true
             }
             Err(_) => false,
