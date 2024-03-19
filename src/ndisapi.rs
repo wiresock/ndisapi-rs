@@ -37,6 +37,9 @@ pub use crate::driver::*;
 // Re-export already public members in `defs.rs`
 pub use crate::ndisapi::defs::{NetworkAdapterInfo, Version};
 
+// Re-export already public members in `fastio_api.rs`
+pub use crate::ndisapi::fastio_api::{IntermediateBufferArray, IntermediateBufferArrayMut};
+
 /// The `Ndisapi` struct represents an instance of the NDIS filter driver that provides access to network adapters and packets.
 ///
 /// This struct is used to communicate with the NDIS filter driver and access its functionalities. It contains a single field, `driver_handle`,

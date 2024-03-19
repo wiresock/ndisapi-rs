@@ -8,10 +8,14 @@
 /// 6. Redirect only outgoing ICMP ping request packets to user mode. Pass all others.
 use clap::Parser;
 use ndisapi::{
-    DirectionFlags, Eth802_3FilterFlags, EthRequest, FilterFlags, FilterLayerFlags,
-    IcmpFilterFlags, IntermediateBuffer, IpV4FilterFlags, IpV6FilterFlags, Ndisapi,
-    StaticFilterTable, TcpUdpFilterFlags, ETH_802_3, FILTER_PACKET_DROP, FILTER_PACKET_PASS,
-    FILTER_PACKET_REDIRECT, ICMP, IPV4, IPV6, IP_SUBNET_V4_TYPE, TCPUDP,
+    ByteRange, DataLinkLayerFilter, DataLinkLayerFilterUnion, DirectionFlags, Eth8023Filter,
+    Eth802_3FilterFlags, EthRequest, EthRequestMut, FilterFlags, FilterLayerFlags, IcmpFilter,
+    IcmpFilterFlags, IntermediateBuffer, IpAddressV4, IpAddressV4Union, IpAddressV6, IpSubnetV4,
+    IpV4Filter, IpV4FilterFlags, IpV6Filter, IpV6FilterFlags, Ndisapi, NetworkLayerFilter,
+    NetworkLayerFilterUnion, PortRange, StaticFilter, StaticFilterTable, TcpUdpFilter,
+    TcpUdpFilterFlags, TransportLayerFilter, TransportLayerFilterUnion, ETHER_ADDR_LENGTH,
+    ETH_802_3, FILTER_PACKET_DROP, FILTER_PACKET_PASS, FILTER_PACKET_REDIRECT, ICMP, IPV4, IPV6,
+    IP_SUBNET_V4_TYPE, TCPUDP,
 };
 use smoltcp::wire::{
     ArpPacket, EthernetFrame, EthernetProtocol, Icmpv4Packet, Icmpv6Packet, IpProtocol, Ipv4Packet,
@@ -56,574 +60,609 @@ const IPPROTO_UDP: u8 = 17;
 const DNS_PORT: u16 = 53;
 const HTTP_PORT: u16 = 80;
 
+/// Sets up a packet filter table for IPv4 DNS packets.
+///
+/// This function configures a packet filter table with three filters:
+///
+/// 1. Outgoing DNS requests filter: This filter redirects outgoing UDP packets with destination port 53 (DNS) for processing in user mode. It applies to all network adapters.
+///
+/// 2. Incoming DNS responses filter: This filter redirects incoming UDP packets with source port 53 (DNS) for processing in user mode. It applies to all network adapters.
+///
+/// 3. Default pass filter: This filter passes all packets that are not matched by the previous filters without processing in user mode. It applies to all network adapters.
+///
+/// After setting up the filter table, this function applies it to the network interface using the `set_packet_filter_table` method of the `Ndisapi` object.
+///
+/// # Arguments
+///
+/// * `ndisapi` - A reference to the `Ndisapi` object that represents the network interface.
+///
+/// # Returns
+///
+/// This function returns a `Result` that indicates whether the operation succeeded or failed. If the operation succeeded, the `Result` contains `()`. If the operation failed, the `Result` contains an error.
+///
+/// # Examples
+///
+///
 fn load_ipv4_dns_filters(ndisapi: &Ndisapi) -> Result<()> {
-    let mut filter_table = StaticFilterTable::<3>::default();
-    //**************************************************************************************
-    // 1. Outgoing DNS requests filter: REDIRECT OUT UDP packets with destination PORT 53
-    // Common values
-    filter_table.static_filters[0].adapter_handle = 0; // applied to all adapters
-    filter_table.static_filters[0].valid_fields =
-        FilterLayerFlags::NETWORK_LAYER_VALID | FilterLayerFlags::TRANSPORT_LAYER_VALID;
-    filter_table.static_filters[0].filter_action = FILTER_PACKET_REDIRECT;
-    filter_table.static_filters[0].direction_flags = DirectionFlags::PACKET_FLAG_ON_SEND;
-
-    // Network layer filter
-    filter_table.static_filters[0].network_filter.union_selector = IPV4;
-    filter_table.static_filters[0]
-        .network_filter
-        .network_layer
-        .ipv4
-        .valid_fields = IpV4FilterFlags::IP_V4_FILTER_PROTOCOL;
-    filter_table.static_filters[0]
-        .network_filter
-        .network_layer
-        .ipv4
-        .protocol = IPPROTO_UDP;
-
-    // Transport layer filter
-    filter_table.static_filters[0]
-        .transport_filter
-        .union_selector = TCPUDP;
-    filter_table.static_filters[0]
-        .transport_filter
-        .transport_layer
-        .tcp_udp
-        .valid_fields = TcpUdpFilterFlags::TCPUDP_DEST_PORT;
-    filter_table.static_filters[0]
-        .transport_filter
-        .transport_layer
-        .tcp_udp
-        .dest_port
-        .start_range = DNS_PORT; // DNS
-    filter_table.static_filters[0]
-        .transport_filter
-        .transport_layer
-        .tcp_udp
-        .dest_port
-        .end_range = DNS_PORT;
-
-    //****************************************************************************************
-    // 2. Incoming DNS responses filter: REDIRECT IN UDP packets with source PORT 53
-    // Common values
-    filter_table.static_filters[1].adapter_handle = 0; // applied to all adapters
-    filter_table.static_filters[1].valid_fields =
-        FilterLayerFlags::NETWORK_LAYER_VALID | FilterLayerFlags::TRANSPORT_LAYER_VALID;
-    filter_table.static_filters[1].filter_action = FILTER_PACKET_REDIRECT;
-    filter_table.static_filters[1].direction_flags = DirectionFlags::PACKET_FLAG_ON_RECEIVE;
-
-    // Network layer filter
-    filter_table.static_filters[1].network_filter.union_selector = IPV4;
-    filter_table.static_filters[1]
-        .network_filter
-        .network_layer
-        .ipv4
-        .valid_fields = IpV4FilterFlags::IP_V4_FILTER_PROTOCOL;
-    filter_table.static_filters[1]
-        .network_filter
-        .network_layer
-        .ipv4
-        .protocol = IPPROTO_UDP;
-
-    // Transport layer filter
-    filter_table.static_filters[1]
-        .transport_filter
-        .union_selector = TCPUDP;
-    filter_table.static_filters[1]
-        .transport_filter
-        .transport_layer
-        .tcp_udp
-        .valid_fields = TcpUdpFilterFlags::TCPUDP_SRC_PORT;
-    filter_table.static_filters[1]
-        .transport_filter
-        .transport_layer
-        .tcp_udp
-        .source_port
-        .start_range = DNS_PORT;
-    filter_table.static_filters[1]
-        .transport_filter
-        .transport_layer
-        .tcp_udp
-        .source_port
-        .end_range = DNS_PORT;
-
-    //***************************************************************************************
-    // 3. Pass all packets (skipped by previous filters) without processing in user mode
-    // Common values
-    filter_table.static_filters[2].adapter_handle = 0; // applied to all adapters
-    filter_table.static_filters[2].valid_fields = FilterLayerFlags::empty();
-    filter_table.static_filters[2].filter_action = FILTER_PACKET_PASS;
-    filter_table.static_filters[2].direction_flags =
-        DirectionFlags::PACKET_FLAG_ON_RECEIVE | DirectionFlags::PACKET_FLAG_ON_SEND;
+    let filter_table = StaticFilterTable::<3>::from_filters([
+        // 1. Outgoing DNS requests filter: REDIRECT OUT UDP packets with destination PORT 53
+        StaticFilter::new(
+            0, // applied to all adapters
+            DirectionFlags::PACKET_FLAG_ON_SEND,
+            FILTER_PACKET_REDIRECT,
+            FilterLayerFlags::NETWORK_LAYER_VALID | FilterLayerFlags::TRANSPORT_LAYER_VALID,
+            DataLinkLayerFilter::default(),
+            NetworkLayerFilter::new(
+                IPV4,
+                NetworkLayerFilterUnion {
+                    ipv4: IpV4Filter::new(
+                        IpV4FilterFlags::IP_V4_FILTER_PROTOCOL,
+                        IpAddressV4::default(),
+                        IpAddressV4::default(),
+                        IPPROTO_UDP,
+                    ),
+                },
+            ),
+            TransportLayerFilter::new(
+                TCPUDP,
+                TransportLayerFilterUnion {
+                    tcp_udp: TcpUdpFilter::new(
+                        TcpUdpFilterFlags::TCPUDP_DEST_PORT,
+                        PortRange::default(),
+                        PortRange::new(DNS_PORT, DNS_PORT),
+                        0u8,
+                    ),
+                },
+            ),
+        ),
+        // 2. Incoming DNS responses filter: REDIRECT IN UDP packets with source PORT 53
+        StaticFilter::new(
+            0, // applied to all adapters
+            DirectionFlags::PACKET_FLAG_ON_RECEIVE,
+            FILTER_PACKET_REDIRECT,
+            FilterLayerFlags::NETWORK_LAYER_VALID | FilterLayerFlags::TRANSPORT_LAYER_VALID,
+            DataLinkLayerFilter::default(),
+            NetworkLayerFilter::new(
+                IPV4,
+                NetworkLayerFilterUnion {
+                    ipv4: IpV4Filter::new(
+                        IpV4FilterFlags::IP_V4_FILTER_PROTOCOL,
+                        IpAddressV4::default(),
+                        IpAddressV4::default(),
+                        IPPROTO_UDP,
+                    ),
+                },
+            ),
+            TransportLayerFilter::new(
+                TCPUDP,
+                TransportLayerFilterUnion {
+                    tcp_udp: TcpUdpFilter::new(
+                        TcpUdpFilterFlags::TCPUDP_SRC_PORT,
+                        PortRange::new(DNS_PORT, DNS_PORT),
+                        PortRange::default(),
+                        0u8,
+                    ),
+                },
+            ),
+        ),
+        // 3. Pass all packets (skipped by previous filters) without processing in user mode
+        StaticFilter::new(
+            0, // applied to all adapters
+            DirectionFlags::PACKET_FLAG_ON_RECEIVE | DirectionFlags::PACKET_FLAG_ON_SEND,
+            FILTER_PACKET_PASS,
+            FilterLayerFlags::empty(),
+            DataLinkLayerFilter::default(),
+            NetworkLayerFilter::default(),
+            TransportLayerFilter::default(),
+        ),
+    ]);
 
     ndisapi.set_packet_filter_table(&filter_table)
 }
 
+/// Sets up a packet filter table for HTTP packets over IPv4 and IPv6.
+///
+/// This function configures a packet filter table with five filters:
+///
+/// 1. Outgoing HTTP requests filter (IPv4): This filter redirects outgoing TCP packets with destination port 80 (HTTP) for processing in user mode. It applies to all network adapters.
+///
+/// 2. Incoming HTTP responses filter (IPv4): This filter redirects incoming TCP packets with source port 80 (HTTP) for processing in user mode. It applies to all network adapters.
+///
+/// 3. Outgoing HTTP requests filter (IPv6): This filter redirects outgoing TCP packets with destination port 80 (HTTP) for processing in user mode. It applies to all network adapters.
+///
+/// 4. Incoming HTTP responses filter (IPv6): This filter redirects incoming TCP packets with source port 80 (HTTP) for processing in user mode. It applies to all network adapters.
+///
+/// 5. Default pass filter: This filter passes all packets that are not matched by the previous filters without processing in user mode. It applies to all network adapters.
+///
+/// After setting up the filter table, this function applies it to the network interface using the `set_packet_filter_table` method of the `Ndisapi` object.
+///
+/// # Arguments
+///
+/// * `ndisapi` - A reference to the `Ndisapi` object that represents the network interface.
+///
+/// # Returns
+///
+/// This function returns a `Result` that indicates whether the operation succeeded or failed. If the operation succeeded, the `Result` contains `()`. If the operation failed, the `Result` contains an error.
+///
+/// # Examples
+///
+///
 fn load_http_ipv4v6_filters(ndisapi: &Ndisapi) -> Result<()> {
-    let mut filter_table = StaticFilterTable::<5>::default();
-    //**************************************************************************************
-    // 1. Outgoing HTTP requests filter: REDIRECT OUT TCP packets with destination PORT 80 IPv4
-    // Common values
-    filter_table.static_filters[0].adapter_handle = 0; // applied to all adapters
-    filter_table.static_filters[0].valid_fields =
-        FilterLayerFlags::NETWORK_LAYER_VALID | FilterLayerFlags::TRANSPORT_LAYER_VALID;
-    filter_table.static_filters[0].filter_action = FILTER_PACKET_REDIRECT;
-    filter_table.static_filters[0].direction_flags = DirectionFlags::PACKET_FLAG_ON_SEND;
-
-    // Network layer filter
-    filter_table.static_filters[0].network_filter.union_selector = IPV4;
-    filter_table.static_filters[0]
-        .network_filter
-        .network_layer
-        .ipv4
-        .valid_fields = IpV4FilterFlags::IP_V4_FILTER_PROTOCOL;
-    filter_table.static_filters[0]
-        .network_filter
-        .network_layer
-        .ipv4
-        .protocol = IPPROTO_TCP;
-
-    // Transport layer filter
-    filter_table.static_filters[0]
-        .transport_filter
-        .union_selector = TCPUDP;
-    filter_table.static_filters[0]
-        .transport_filter
-        .transport_layer
-        .tcp_udp
-        .valid_fields = TcpUdpFilterFlags::TCPUDP_DEST_PORT;
-    filter_table.static_filters[0]
-        .transport_filter
-        .transport_layer
-        .tcp_udp
-        .dest_port
-        .start_range = HTTP_PORT; // HTTP
-    filter_table.static_filters[0]
-        .transport_filter
-        .transport_layer
-        .tcp_udp
-        .dest_port
-        .end_range = HTTP_PORT;
-
-    //****************************************************************************************
-    // 2. Incoming HTTP responses filter: REDIRECT IN TCP packets with source PORT 80 IPv4
-    // Common values
-    filter_table.static_filters[1].adapter_handle = 0; // applied to all adapters
-    filter_table.static_filters[1].valid_fields =
-        FilterLayerFlags::NETWORK_LAYER_VALID | FilterLayerFlags::TRANSPORT_LAYER_VALID;
-    filter_table.static_filters[1].filter_action = FILTER_PACKET_REDIRECT;
-    filter_table.static_filters[1].direction_flags = DirectionFlags::PACKET_FLAG_ON_RECEIVE;
-
-    // Network layer filter
-    filter_table.static_filters[1].network_filter.union_selector = IPV4;
-    filter_table.static_filters[1]
-        .network_filter
-        .network_layer
-        .ipv4
-        .valid_fields = IpV4FilterFlags::IP_V4_FILTER_PROTOCOL;
-    filter_table.static_filters[1]
-        .network_filter
-        .network_layer
-        .ipv4
-        .protocol = IPPROTO_TCP;
-
-    // Transport layer filter
-    filter_table.static_filters[1]
-        .transport_filter
-        .union_selector = TCPUDP;
-    filter_table.static_filters[1]
-        .transport_filter
-        .transport_layer
-        .tcp_udp
-        .valid_fields = TcpUdpFilterFlags::TCPUDP_SRC_PORT;
-    filter_table.static_filters[1]
-        .transport_filter
-        .transport_layer
-        .tcp_udp
-        .source_port
-        .start_range = HTTP_PORT; // HTTP
-    filter_table.static_filters[1]
-        .transport_filter
-        .transport_layer
-        .tcp_udp
-        .source_port
-        .end_range = HTTP_PORT;
-
-    //****************************************************************************************
-    // 3. Outgoing HTTP requests filter: REDIRECT OUT TCP packets with destination PORT 80 IPv6
-    // Common values
-    filter_table.static_filters[2].adapter_handle = 0; // applied to all adapters
-    filter_table.static_filters[2].valid_fields =
-        FilterLayerFlags::NETWORK_LAYER_VALID | FilterLayerFlags::TRANSPORT_LAYER_VALID;
-    filter_table.static_filters[2].filter_action = FILTER_PACKET_REDIRECT;
-    filter_table.static_filters[2].direction_flags = DirectionFlags::PACKET_FLAG_ON_SEND;
-
-    // Network layer filter
-    filter_table.static_filters[2].network_filter.union_selector = IPV6;
-    filter_table.static_filters[2]
-        .network_filter
-        .network_layer
-        .ipv6
-        .valid_fields = IpV6FilterFlags::IP_V6_FILTER_PROTOCOL;
-    filter_table.static_filters[2]
-        .network_filter
-        .network_layer
-        .ipv6
-        .protocol = IPPROTO_TCP;
-
-    // Transport layer filter
-    filter_table.static_filters[2]
-        .transport_filter
-        .union_selector = TCPUDP;
-    filter_table.static_filters[2]
-        .transport_filter
-        .transport_layer
-        .tcp_udp
-        .valid_fields = TcpUdpFilterFlags::TCPUDP_DEST_PORT;
-    filter_table.static_filters[2]
-        .transport_filter
-        .transport_layer
-        .tcp_udp
-        .dest_port
-        .start_range = HTTP_PORT; // HTTP
-    filter_table.static_filters[2]
-        .transport_filter
-        .transport_layer
-        .tcp_udp
-        .dest_port
-        .end_range = HTTP_PORT;
-
-    //****************************************************************************************
-    // 4. Incoming HTTP responses filter: REDIRECT IN TCP packets with source PORT 80 IPv6
-    // Common values
-    filter_table.static_filters[3].adapter_handle = 0; // applied to all adapters
-    filter_table.static_filters[3].valid_fields =
-        FilterLayerFlags::NETWORK_LAYER_VALID | FilterLayerFlags::TRANSPORT_LAYER_VALID;
-    filter_table.static_filters[3].filter_action = FILTER_PACKET_REDIRECT;
-    filter_table.static_filters[3].direction_flags = DirectionFlags::PACKET_FLAG_ON_RECEIVE;
-
-    // Network layer filter
-    filter_table.static_filters[3].network_filter.union_selector = IPV6;
-    filter_table.static_filters[3]
-        .network_filter
-        .network_layer
-        .ipv6
-        .valid_fields = IpV6FilterFlags::IP_V6_FILTER_PROTOCOL;
-    filter_table.static_filters[3]
-        .network_filter
-        .network_layer
-        .ipv6
-        .protocol = IPPROTO_TCP;
-
-    // Transport layer filter
-    filter_table.static_filters[3]
-        .transport_filter
-        .union_selector = TCPUDP;
-    filter_table.static_filters[3]
-        .transport_filter
-        .transport_layer
-        .tcp_udp
-        .valid_fields = TcpUdpFilterFlags::TCPUDP_SRC_PORT;
-    filter_table.static_filters[3]
-        .transport_filter
-        .transport_layer
-        .tcp_udp
-        .source_port
-        .end_range = HTTP_PORT; // HTTP
-    filter_table.static_filters[3]
-        .transport_filter
-        .transport_layer
-        .tcp_udp
-        .source_port
-        .end_range = HTTP_PORT;
-
-    //***************************************************************************************
-    // 5. Pass all packets (skipped by previous filters) without processing in user mode
-    // Common values
-    filter_table.static_filters[4].adapter_handle = 0; // applied to all adapters
-    filter_table.static_filters[4].valid_fields = FilterLayerFlags::empty();
-    filter_table.static_filters[4].filter_action = FILTER_PACKET_PASS;
-    filter_table.static_filters[4].direction_flags =
-        DirectionFlags::PACKET_FLAG_ON_RECEIVE | DirectionFlags::PACKET_FLAG_ON_SEND;
+    let filter_table = StaticFilterTable::<5>::from_filters([
+        // 1. Outgoing HTTP requests filter: REDIRECT OUT TCP packets with destination PORT 80 IPv4
+        StaticFilter::new(
+            0, // applied to all adapters
+            DirectionFlags::PACKET_FLAG_ON_SEND,
+            FILTER_PACKET_REDIRECT,
+            FilterLayerFlags::NETWORK_LAYER_VALID | FilterLayerFlags::TRANSPORT_LAYER_VALID,
+            DataLinkLayerFilter::default(),
+            NetworkLayerFilter::new(
+                IPV4,
+                NetworkLayerFilterUnion {
+                    ipv4: IpV4Filter::new(
+                        IpV4FilterFlags::IP_V4_FILTER_PROTOCOL,
+                        IpAddressV4::default(),
+                        IpAddressV4::default(),
+                        IPPROTO_TCP,
+                    ),
+                },
+            ),
+            TransportLayerFilter::new(
+                TCPUDP,
+                TransportLayerFilterUnion {
+                    tcp_udp: TcpUdpFilter::new(
+                        TcpUdpFilterFlags::TCPUDP_DEST_PORT,
+                        PortRange::default(),
+                        PortRange::new(HTTP_PORT, HTTP_PORT),
+                        0u8,
+                    ),
+                },
+            ),
+        ),
+        // 2. Incoming HTTP responses filter: REDIRECT IN TCP packets with source PORT 80 IPv4
+        StaticFilter::new(
+            0, // applied to all adapters
+            DirectionFlags::PACKET_FLAG_ON_RECEIVE,
+            FILTER_PACKET_REDIRECT,
+            FilterLayerFlags::NETWORK_LAYER_VALID | FilterLayerFlags::TRANSPORT_LAYER_VALID,
+            DataLinkLayerFilter::default(),
+            NetworkLayerFilter::new(
+                IPV4,
+                NetworkLayerFilterUnion {
+                    ipv4: IpV4Filter::new(
+                        IpV4FilterFlags::IP_V4_FILTER_PROTOCOL,
+                        IpAddressV4::default(),
+                        IpAddressV4::default(),
+                        IPPROTO_TCP,
+                    ),
+                },
+            ),
+            TransportLayerFilter::new(
+                TCPUDP,
+                TransportLayerFilterUnion {
+                    tcp_udp: TcpUdpFilter::new(
+                        TcpUdpFilterFlags::TCPUDP_SRC_PORT,
+                        PortRange::new(HTTP_PORT, HTTP_PORT),
+                        PortRange::default(),
+                        0u8,
+                    ),
+                },
+            ),
+        ),
+        // 3. Outgoing HTTP requests filter: REDIRECT OUT TCP packets with destination PORT 80 IPv6
+        StaticFilter::new(
+            0, // applied to all adapters
+            DirectionFlags::PACKET_FLAG_ON_SEND,
+            FILTER_PACKET_REDIRECT,
+            FilterLayerFlags::NETWORK_LAYER_VALID | FilterLayerFlags::TRANSPORT_LAYER_VALID,
+            DataLinkLayerFilter::default(),
+            NetworkLayerFilter::new(
+                IPV6,
+                NetworkLayerFilterUnion {
+                    ipv6: IpV6Filter::new(
+                        IpV6FilterFlags::IP_V6_FILTER_PROTOCOL,
+                        IpAddressV6::default(),
+                        IpAddressV6::default(),
+                        IPPROTO_TCP,
+                    ),
+                },
+            ),
+            TransportLayerFilter::new(
+                TCPUDP,
+                TransportLayerFilterUnion {
+                    tcp_udp: TcpUdpFilter::new(
+                        TcpUdpFilterFlags::TCPUDP_DEST_PORT,
+                        PortRange::default(),
+                        PortRange::new(HTTP_PORT, HTTP_PORT),
+                        0u8,
+                    ),
+                },
+            ),
+        ),
+        // 4. Incoming HTTP responses filter: REDIRECT IN TCP packets with source PORT 80 IPv6
+        StaticFilter::new(
+            0, // applied to all adapters
+            DirectionFlags::PACKET_FLAG_ON_RECEIVE,
+            FILTER_PACKET_REDIRECT,
+            FilterLayerFlags::NETWORK_LAYER_VALID | FilterLayerFlags::TRANSPORT_LAYER_VALID,
+            DataLinkLayerFilter::default(),
+            NetworkLayerFilter::new(
+                IPV6,
+                NetworkLayerFilterUnion {
+                    ipv6: IpV6Filter::new(
+                        IpV6FilterFlags::IP_V6_FILTER_PROTOCOL,
+                        IpAddressV6::default(),
+                        IpAddressV6::default(),
+                        IPPROTO_TCP,
+                    ),
+                },
+            ),
+            TransportLayerFilter::new(
+                TCPUDP,
+                TransportLayerFilterUnion {
+                    tcp_udp: TcpUdpFilter::new(
+                        TcpUdpFilterFlags::TCPUDP_SRC_PORT,
+                        PortRange::new(HTTP_PORT, HTTP_PORT),
+                        PortRange::default(),
+                        0u8,
+                    ),
+                },
+            ),
+        ),
+        // 5. Pass all packets (skipped by previous filters) without processing in user mode
+        StaticFilter::new(
+            0, // applied to all adapters
+            DirectionFlags::PACKET_FLAG_ON_RECEIVE | DirectionFlags::PACKET_FLAG_ON_SEND,
+            FILTER_PACKET_PASS,
+            FilterLayerFlags::empty(),
+            DataLinkLayerFilter::default(),
+            NetworkLayerFilter::default(),
+            TransportLayerFilter::default(),
+        ),
+    ]);
 
     ndisapi.set_packet_filter_table(&filter_table)
 }
 
+/// Sets up a packet filter table to drop all ICMP packets.
+///
+/// This function configures a packet filter table with a single filter:
+///
+/// 1. Block all ICMP packets: This filter drops all ICMP packets, both incoming and outgoing. It applies to all network adapters.
+///
+/// After setting up the filter table, this function applies it to the network interface using the `set_packet_filter_table` method of the `Ndisapi` object.
+///
+/// # Arguments
+///
+/// * `ndisapi` - A reference to the `Ndisapi` object that represents the network interface.
+///
+/// # Returns
+///
+/// This function returns a `Result` that indicates whether the operation succeeded or failed. If the operation succeeded, the `Result` contains `()`. If the operation failed, the `Result` contains an error.
+///
+/// # Examples
+///
+///
 fn load_icmpv4_drop_filters(ndisapi: &Ndisapi) -> Result<()> {
-    let mut filter_table = StaticFilterTable::<1>::default();
-    //**************************************************************************************
-    // 1. Block all ICMP packets
-    // Common values
-    filter_table.static_filters[0].adapter_handle = 0; // applied to all adapters
-    filter_table.static_filters[0].valid_fields = FilterLayerFlags::NETWORK_LAYER_VALID;
-    filter_table.static_filters[0].filter_action = FILTER_PACKET_DROP;
-    filter_table.static_filters[0].direction_flags =
-        DirectionFlags::PACKET_FLAG_ON_SEND | DirectionFlags::PACKET_FLAG_ON_RECEIVE;
-
-    // Network layer filter
-    filter_table.static_filters[0].network_filter.union_selector = IPV4;
-    filter_table.static_filters[0]
-        .network_filter
-        .network_layer
-        .ipv4
-        .valid_fields = IpV4FilterFlags::IP_V4_FILTER_PROTOCOL;
-    filter_table.static_filters[0]
-        .network_filter
-        .network_layer
-        .ipv4
-        .protocol = IPPROTO_ICMP;
+    let filter_table = StaticFilterTable::<1>::from_filters([
+        // 1. Block all ICMP packets
+        StaticFilter::new(
+            0, // applied to all adapters
+            DirectionFlags::PACKET_FLAG_ON_SEND | DirectionFlags::PACKET_FLAG_ON_RECEIVE,
+            FILTER_PACKET_DROP,
+            FilterLayerFlags::NETWORK_LAYER_VALID,
+            DataLinkLayerFilter::default(),
+            NetworkLayerFilter::new(
+                IPV4,
+                NetworkLayerFilterUnion {
+                    ipv4: IpV4Filter::new(
+                        IpV4FilterFlags::IP_V4_FILTER_PROTOCOL,
+                        IpAddressV4::default(),
+                        IpAddressV4::default(),
+                        IPPROTO_ICMP,
+                    ),
+                },
+            ),
+            TransportLayerFilter::default(),
+        ),
+    ]);
 
     ndisapi.set_packet_filter_table(&filter_table)
 }
 
+/// Sets up a packet filter table to block access to https://www.ntkernel.com over IPv4.
+///
+/// This function configures a packet filter table with two filters:
+///
+/// 1. Outgoing HTTP requests filter: This filter drops outgoing TCP packets with destination IP 95.179.146.125 and destination port 443 (https://www.ntkernel.com). It applies to all network adapters.
+///
+/// 2. Default pass filter: This filter passes all packets that are not matched by the previous filter without processing in user mode. It applies to all network adapters.
+///
+/// After setting up the filter table, this function applies it to the network interface using the `set_packet_filter_table` method of the `Ndisapi` object.
+///
+/// # Arguments
+///
+/// * `ndisapi` - A reference to the `Ndisapi` object that represents the network interface.
+///
+/// # Returns
+///
+/// This function returns a `Result` that indicates whether the operation succeeded or failed. If the operation succeeded, the `Result` contains `()`. If the operation failed, the `Result` contains an error.
+///
+/// # Examples
+///
+///
 fn load_block_ntkernel_https_filters(ndisapi: &Ndisapi) -> Result<()> {
-    let mut filter_table = StaticFilterTable::<2>::default();
-
-    //**************************************************************************************
-    // 1. Outgoing HTTP requests filter: DROP OUT TCP packets with destination IP 95.179.146.125 PORT 443 (https://www.ntkernel.com)
-    // Common values
-    filter_table.static_filters[0].adapter_handle = 0; // applied to all adapters
-    filter_table.static_filters[0].valid_fields =
-        FilterLayerFlags::NETWORK_LAYER_VALID | FilterLayerFlags::TRANSPORT_LAYER_VALID;
-    filter_table.static_filters[0].filter_action = FILTER_PACKET_DROP;
-    filter_table.static_filters[0].direction_flags = DirectionFlags::PACKET_FLAG_ON_SEND;
-
-    // Network layer filter
-    let address = IN_ADDR {
-        S_un: IN_ADDR_0 {
-            S_un_b: IN_ADDR_0_0 {
-                s_b1: 95,
-                s_b2: 179,
-                s_b3: 146,
-                s_b4: 125,
-            },
-        },
-    };
-
-    let mask = IN_ADDR {
-        S_un: IN_ADDR_0 {
-            S_un_b: IN_ADDR_0_0 {
-                s_b1: 255,
-                s_b2: 255,
-                s_b3: 255,
-                s_b4: 255,
-            },
-        },
-    };
-
-    filter_table.static_filters[0].network_filter.union_selector = IPV4;
-    filter_table.static_filters[0]
-        .network_filter
-        .network_layer
-        .ipv4
-        .valid_fields =
-        IpV4FilterFlags::IP_V4_FILTER_PROTOCOL | IpV4FilterFlags::IP_V4_FILTER_DEST_ADDRESS;
-    filter_table.static_filters[0]
-        .network_filter
-        .network_layer
-        .ipv4
-        .dest_address
-        .address_type = IP_SUBNET_V4_TYPE;
-    filter_table.static_filters[0]
-        .network_filter
-        .network_layer
-        .ipv4
-        .dest_address
-        .address
-        .ip_subnet
-        .ip = address; // IP address
-    filter_table.static_filters[0]
-        .network_filter
-        .network_layer
-        .ipv4
-        .dest_address
-        .address
-        .ip_subnet
-        .ip_mask = mask; // network mask
-    filter_table.static_filters[0]
-        .network_filter
-        .network_layer
-        .ipv4
-        .protocol = IPPROTO_TCP;
-
-    // Transport layer filter
-    filter_table.static_filters[0]
-        .transport_filter
-        .union_selector = TCPUDP;
-    filter_table.static_filters[0]
-        .transport_filter
-        .transport_layer
-        .tcp_udp
-        .valid_fields = TcpUdpFilterFlags::TCPUDP_DEST_PORT;
-    filter_table.static_filters[0]
-        .transport_filter
-        .transport_layer
-        .tcp_udp
-        .dest_port
-        .start_range = 443; // HTTPS
-    filter_table.static_filters[0]
-        .transport_filter
-        .transport_layer
-        .tcp_udp
-        .dest_port
-        .end_range = 443;
-
-    //***************************************************************************************
-    // 2. Pass all packets (skipped by previous filters) without processing in user mode
-    // Common values
-    filter_table.static_filters[1].adapter_handle = 0; // applied to all adapters
-    filter_table.static_filters[1].valid_fields = FilterLayerFlags::empty();
-    filter_table.static_filters[1].filter_action = FILTER_PACKET_PASS;
-    filter_table.static_filters[1].direction_flags =
-        DirectionFlags::PACKET_FLAG_ON_RECEIVE | DirectionFlags::PACKET_FLAG_ON_SEND;
+    let filter_table = StaticFilterTable::<2>::from_filters([
+        // 1. Outgoing HTTP requests filter: DROP OUT TCP packets with destination IP 95.179.146.125 PORT 443 (https://www.ntkernel.com)
+        StaticFilter::new(
+            0, // applied to all adapters
+            DirectionFlags::PACKET_FLAG_ON_SEND,
+            FILTER_PACKET_DROP,
+            FilterLayerFlags::NETWORK_LAYER_VALID | FilterLayerFlags::TRANSPORT_LAYER_VALID,
+            DataLinkLayerFilter::default(),
+            NetworkLayerFilter::new(
+                IPV4,
+                NetworkLayerFilterUnion {
+                    ipv4: IpV4Filter::new(
+                        IpV4FilterFlags::IP_V4_FILTER_PROTOCOL
+                            | IpV4FilterFlags::IP_V4_FILTER_DEST_ADDRESS,
+                        IpAddressV4::new(
+                            IP_SUBNET_V4_TYPE,
+                            IpAddressV4Union {
+                                ip_subnet: IpSubnetV4::new(
+                                    IN_ADDR {
+                                        S_un: IN_ADDR_0 {
+                                            S_un_b: IN_ADDR_0_0 {
+                                                s_b1: 95,
+                                                s_b2: 179,
+                                                s_b3: 146,
+                                                s_b4: 125,
+                                            },
+                                        },
+                                    },
+                                    IN_ADDR {
+                                        S_un: IN_ADDR_0 {
+                                            S_un_b: IN_ADDR_0_0 {
+                                                s_b1: 255,
+                                                s_b2: 255,
+                                                s_b3: 255,
+                                                s_b4: 255,
+                                            },
+                                        },
+                                    },
+                                ),
+                            },
+                        ),
+                        IpAddressV4::default(),
+                        IPPROTO_TCP,
+                    ),
+                },
+            ),
+            TransportLayerFilter::new(
+                TCPUDP,
+                TransportLayerFilterUnion {
+                    tcp_udp: TcpUdpFilter::new(
+                        TcpUdpFilterFlags::TCPUDP_DEST_PORT,
+                        PortRange::default(),
+                        PortRange::new(443, 443),
+                        0u8,
+                    ),
+                },
+            ),
+        ),
+        // 2. Pass all packets (skipped by previous filters) without processing in user mode
+        StaticFilter::new(
+            0, // applied to all adapters
+            DirectionFlags::PACKET_FLAG_ON_RECEIVE | DirectionFlags::PACKET_FLAG_ON_SEND,
+            FILTER_PACKET_PASS,
+            FilterLayerFlags::empty(),
+            DataLinkLayerFilter::default(),
+            NetworkLayerFilter::default(),
+            TransportLayerFilter::default(),
+        ),
+    ]);
 
     ndisapi.set_packet_filter_table(&filter_table)
 }
 
+/// Sets up a packet filter table to redirect ARP and RARP packets for user mode processing.
+///
+/// This function configures a packet filter table with three filters:
+///
+/// 1. ARP packets filter: This filter redirects all ARP packets for processing in user mode. It applies to all network adapters.
+///
+/// 2. RARP packets filter: This filter redirects all RARP packets for processing in user mode. It applies to all network adapters.
+///
+/// 3. Default pass filter: This filter passes all packets that are not matched by the previous filters without processing in user mode. It applies to all network adapters.
+///
+/// After setting up the filter table, this function applies it to the network interface using the `set_packet_filter_table` method of the `Ndisapi` object.
+///
+/// # Arguments
+///
+/// * `ndisapi` - A reference to the `Ndisapi` object that represents the network interface.
+///
+/// # Returns
+///
+/// This function returns a `Result` that indicates whether the operation succeeded or failed. If the operation succeeded, the `Result` contains `()`. If the operation failed, the `Result` contains an error.
+///
+/// # Examples
+///
+///
 fn load_redirect_arp_filters(ndisapi: &Ndisapi) -> Result<()> {
-    let mut filter_table = StaticFilterTable::<3>::default();
-
-    //**************************************************************************************
-    // 1. Redirects all ARP packets to be processes by user mode application
-    // Common values
-    filter_table.static_filters[0].adapter_handle = 0; // applied to all adapters
-    filter_table.static_filters[0].valid_fields = FilterLayerFlags::DATA_LINK_LAYER_VALID;
-    filter_table.static_filters[0].filter_action = FILTER_PACKET_REDIRECT;
-    filter_table.static_filters[0].direction_flags = DirectionFlags::PACKET_FLAG_ON_SEND_RECEIVE;
-    filter_table.static_filters[0]
-        .data_link_filter
-        .union_selector = ETH_802_3;
-    filter_table.static_filters[0]
-        .data_link_filter
-        .data_link_layer
-        .eth_8023_filter
-        .valid_fields = Eth802_3FilterFlags::ETH_802_3_PROTOCOL;
-    filter_table.static_filters[0]
-        .data_link_filter
-        .data_link_layer
-        .eth_8023_filter
-        .protocol = ETH_P_ARP;
-
-    //**************************************************************************************
-    // 2. Redirects all RARP packets to be processes by user mode application
-    // Common values
-    filter_table.static_filters[1].adapter_handle = 0; // applied to all adapters
-    filter_table.static_filters[1].valid_fields = FilterLayerFlags::DATA_LINK_LAYER_VALID;
-    filter_table.static_filters[1].filter_action = FILTER_PACKET_REDIRECT;
-    filter_table.static_filters[1].direction_flags = DirectionFlags::PACKET_FLAG_ON_SEND_RECEIVE;
-    filter_table.static_filters[1]
-        .data_link_filter
-        .union_selector = ETH_802_3;
-    filter_table.static_filters[1]
-        .data_link_filter
-        .data_link_layer
-        .eth_8023_filter
-        .valid_fields = Eth802_3FilterFlags::ETH_802_3_PROTOCOL;
-    filter_table.static_filters[1]
-        .data_link_filter
-        .data_link_layer
-        .eth_8023_filter
-        .protocol = ETH_P_RARP;
-
-    //***************************************************************************************
-    // 3. Pass all packets (skipped by previous filters) without processing in user mode
-    // Common values
-    filter_table.static_filters[2].adapter_handle = 0; // applied to all adapters
-    filter_table.static_filters[2].valid_fields = FilterLayerFlags::empty();
-    filter_table.static_filters[2].filter_action = FILTER_PACKET_PASS;
-    filter_table.static_filters[2].direction_flags =
-        DirectionFlags::PACKET_FLAG_ON_RECEIVE | DirectionFlags::PACKET_FLAG_ON_SEND;
+    let filter_table = StaticFilterTable::<3>::from_filters([
+        // 1. Redirects all ARP packets to be processed by user mode application
+        StaticFilter::new(
+            0, // applied to all adapters
+            DirectionFlags::PACKET_FLAG_ON_SEND_RECEIVE,
+            FILTER_PACKET_REDIRECT,
+            FilterLayerFlags::DATA_LINK_LAYER_VALID,
+            DataLinkLayerFilter::new(
+                ETH_802_3,
+                DataLinkLayerFilterUnion {
+                    eth_8023_filter: Eth8023Filter::new(
+                        Eth802_3FilterFlags::ETH_802_3_PROTOCOL,
+                        [0; ETHER_ADDR_LENGTH],
+                        [0; ETHER_ADDR_LENGTH],
+                        ETH_P_ARP,
+                    ),
+                },
+            ),
+            NetworkLayerFilter::default(),
+            TransportLayerFilter::default(),
+        ),
+        // 2. Redirects all RARP packets to be processed by user mode application
+        StaticFilter::new(
+            0, // applied to all adapters
+            DirectionFlags::PACKET_FLAG_ON_SEND_RECEIVE,
+            FILTER_PACKET_REDIRECT,
+            FilterLayerFlags::DATA_LINK_LAYER_VALID,
+            DataLinkLayerFilter::new(
+                ETH_802_3,
+                DataLinkLayerFilterUnion {
+                    eth_8023_filter: Eth8023Filter::new(
+                        Eth802_3FilterFlags::ETH_802_3_PROTOCOL,
+                        [0; ETHER_ADDR_LENGTH],
+                        [0; ETHER_ADDR_LENGTH],
+                        ETH_P_RARP,
+                    ),
+                },
+            ),
+            NetworkLayerFilter::default(),
+            TransportLayerFilter::default(),
+        ),
+        // 3. Pass all packets (skipped by previous filters) without processing in user mode
+        StaticFilter::new(
+            0, // applied to all adapters
+            DirectionFlags::PACKET_FLAG_ON_RECEIVE | DirectionFlags::PACKET_FLAG_ON_SEND,
+            FILTER_PACKET_PASS,
+            FilterLayerFlags::empty(),
+            DataLinkLayerFilter::default(),
+            NetworkLayerFilter::default(),
+            TransportLayerFilter::default(),
+        ),
+    ]);
 
     ndisapi.set_packet_filter_table(&filter_table)
 }
 
+/// Sets up a packet filter table to redirect outgoing ICMP ping request packets for user mode processing.
+///
+/// This function configures a packet filter table with two filters:
+///
+/// 1. Outgoing ICMP ping requests filter: This filter redirects outgoing ICMP ping request packets for processing in user mode. It applies to all network adapters.
+///
+/// 2. Default pass filter: This filter passes all packets that are not matched by the previous filter without processing in user mode. It applies to all network adapters.
+///
+/// After setting up the filter table, this function applies it to the network interface using the `set_packet_filter_table` method of the `Ndisapi` object.
+///
+/// # Arguments
+///
+/// * `ndisapi` - A reference to the `Ndisapi` object that represents the network interface.
+///
+/// # Returns
+///
+/// This function returns a `Result` that indicates whether the operation succeeded or failed. If the operation succeeded, the `Result` contains `()`. If the operation failed, the `Result` contains an error.
+///
+/// # Examples
+///
+///
 fn load_redirect_icmp_req_filters(ndisapi: &Ndisapi) -> Result<()> {
-    let mut filter_table = StaticFilterTable::<2>::default();
-
-    //**************************************************************************************
-    // 1. Redirects all ARP packets to be processes by user mode application
-    // Common values
-    filter_table.static_filters[0].adapter_handle = 0; // applied to all adapters
-    filter_table.static_filters[0].valid_fields =
-        FilterLayerFlags::NETWORK_LAYER_VALID | FilterLayerFlags::TRANSPORT_LAYER_VALID;
-    filter_table.static_filters[0].filter_action = FILTER_PACKET_REDIRECT;
-    filter_table.static_filters[0].direction_flags = DirectionFlags::PACKET_FLAG_ON_SEND;
-
-    filter_table.static_filters[0].network_filter.union_selector = IPV4;
-    filter_table.static_filters[0]
-        .network_filter
-        .network_layer
-        .ipv4
-        .valid_fields = IpV4FilterFlags::IP_V4_FILTER_PROTOCOL;
-    filter_table.static_filters[0]
-        .network_filter
-        .network_layer
-        .ipv4
-        .dest_address
-        .address_type = IP_SUBNET_V4_TYPE;
-    filter_table.static_filters[0]
-        .network_filter
-        .network_layer
-        .ipv4
-        .protocol = IPPROTO_ICMP;
-
-    // Transport layer filter
-    filter_table.static_filters[0]
-        .transport_filter
-        .union_selector = ICMP;
-    filter_table.static_filters[0]
-        .transport_filter
-        .transport_layer
-        .icmp
-        .valid_fields = IcmpFilterFlags::ICMP_TYPE;
-    filter_table.static_filters[0]
-        .transport_filter
-        .transport_layer
-        .icmp
-        .type_range
-        .start_range = 8; // ICMP PING REQUEST
-    filter_table.static_filters[0]
-        .transport_filter
-        .transport_layer
-        .icmp
-        .type_range
-        .end_range = 8;
-
-    //***************************************************************************************
-    // 2. Pass all packets (skipped by previous filters) without processing in user mode
-    // Common values
-    filter_table.static_filters[1].adapter_handle = 0; // applied to all adapters
-    filter_table.static_filters[1].valid_fields = FilterLayerFlags::empty();
-    filter_table.static_filters[1].filter_action = FILTER_PACKET_PASS;
-    filter_table.static_filters[1].direction_flags =
-        DirectionFlags::PACKET_FLAG_ON_RECEIVE | DirectionFlags::PACKET_FLAG_ON_SEND;
+    let filter_table = StaticFilterTable::<2>::from_filters([
+        // 1. Redirects all outgoing ICMP ping request packets to be processed by user mode application
+        StaticFilter::new(
+            0, // applied to all adapters
+            DirectionFlags::PACKET_FLAG_ON_SEND,
+            FILTER_PACKET_REDIRECT,
+            FilterLayerFlags::NETWORK_LAYER_VALID | FilterLayerFlags::TRANSPORT_LAYER_VALID,
+            DataLinkLayerFilter::default(),
+            NetworkLayerFilter::new(
+                IPV4,
+                NetworkLayerFilterUnion {
+                    ipv4: IpV4Filter::new(
+                        IpV4FilterFlags::IP_V4_FILTER_PROTOCOL,
+                        IpAddressV4::default(),
+                        IpAddressV4::default(),
+                        IPPROTO_ICMP,
+                    ),
+                },
+            ),
+            TransportLayerFilter::new(
+                ICMP,
+                TransportLayerFilterUnion {
+                    icmp: IcmpFilter::new(
+                        IcmpFilterFlags::ICMP_TYPE,
+                        ByteRange::new(8, 8),
+                        ByteRange::default(),
+                    ),
+                },
+            ),
+        ),
+        // 2. Pass all packets (skipped by previous filters) without processing in user mode
+        StaticFilter::new(
+            0, // applied to all adapters
+            DirectionFlags::PACKET_FLAG_ON_RECEIVE | DirectionFlags::PACKET_FLAG_ON_SEND,
+            FILTER_PACKET_PASS,
+            FilterLayerFlags::empty(),
+            DataLinkLayerFilter::default(),
+            NetworkLayerFilter::default(),
+            TransportLayerFilter::default(),
+        ),
+    ]);
 
     ndisapi.set_packet_filter_table(&filter_table)
 }
 
+/// Entry point of the application.
+///
+/// This function parses the command line arguments, initializes the Ndisapi driver, sets up the packet filter table based on the selected filter set, and starts the packet processing loop.
+///
+/// The packet processing loop reads packets from the network interface, prints some information about each packet, and then re-injects the packets back into the network stack.
+///
+/// The loop continues until the user presses Ctrl-C.
+///
+/// # Arguments
+///
+/// None.
+///
+/// # Returns
+///
+/// This function returns a `Result` that indicates whether the operation succeeded or failed. If the operation succeeded, the `Result` contains `()`. If the operation failed, the `Result` contains an error.
+///
+/// # Examples
+///
+///
 fn main() -> Result<()> {
+    // Parse command line arguments
     let Cli {
         mut interface_index,
         filter,
     } = Cli::parse();
 
+    // Adjust the interface index to be zero-based
     interface_index -= 1;
 
+    // Initialize the Ndisapi driver
     let driver =
         Ndisapi::new("NDISRD").expect("WinpkFilter driver is not installed or failed to load!");
 
+    // Print the version of the WinpkFilter driver
     println!(
         "Detected Windows Packet Filter version {}",
         driver.get_version()?
     );
 
+    // Get the list of network interfaces that are bound to TCP/IP
     let adapters = driver.get_tcpip_bound_adapters_info()?;
 
+    // Check if the selected interface index is valid
     if interface_index + 1 > adapters.len() {
-        panic!("Interface index is beoynd the number of available interfaces");
+        panic!("Interface index is beyond the number of available interfaces");
     }
 
+    // Print the name of the selected network interface
     println!("Using interface {}s", adapters[interface_index].get_name());
 
+    // Set up the packet filter table based on the selected filter set
     let filter_set_result = match filter {
         1 => load_ipv4_dns_filters(&driver),
         2 => load_http_ipv4v6_filters(&driver),
@@ -631,95 +670,113 @@ fn main() -> Result<()> {
         4 => load_block_ntkernel_https_filters(&driver),
         5 => load_redirect_arp_filters(&driver),
         6 => load_redirect_icmp_req_filters(&driver),
-        _ => panic!("Filter set is not availbale"),
+        _ => panic!("Filter set is not available"),
     };
 
+    // Check if the packet filter table was set up successfully
     match filter_set_result {
-        Ok(_) => println!("Succesfully loaded static filters into the driver."),
+        Ok(_) => println!("Successfully loaded static filters into the driver."),
         Err(err) => panic!("Failed to load static filter into the driver. Error code: {err}"),
     }
 
-    // Create Win32 event
+    // Create a Win32 event for packet arrival notification
     let event: HANDLE;
     unsafe {
         event = CreateEventW(None, true, false, None)?;
     }
 
+    // Set up a Ctrl-C handler to terminate the packet processing loop
     let terminate: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
     let ctrlc_pressed = terminate.clone();
     ctrlc::set_handler(move || {
         println!("Ctrl-C was pressed. Terminating...");
-        // set atomic flag to exit the loop
+        // Set the atomic flag to exit the loop
         ctrlc_pressed.store(true, Ordering::SeqCst);
-        // signal an event to release the loop if there are no packets in the queue
+        // Signal the event to release the loop if there are no packets in the queue
         let _ = unsafe { SetEvent(event) };
     })
     .expect("Error setting Ctrl-C handler");
 
-    // Set the event within the driver
+    // Set the event within the driver for packet arrival notification
     driver.set_packet_event(adapters[interface_index].get_handle(), event)?;
 
-    // Put network interface into the tunnel mode
+    // Put the network interface into tunnel mode
     driver.set_adapter_mode(
         adapters[interface_index].get_handle(),
         FilterFlags::MSTCP_FLAG_SENT_RECEIVE_TUNNEL,
     )?;
 
-    // Allocate single IntermediateBuffer on the stack
+    // Allocate a single IntermediateBuffer on the stack for packet reading
     let mut packet = IntermediateBuffer::default();
 
-    // Initialize EthPacket to pass to driver API
-    let mut request = EthRequest::new(adapters[interface_index].get_handle());
-    request.set_packet(&mut packet);
-
+    // Start the packet processing loop
     while !terminate.load(Ordering::SeqCst) {
+        // Wait for a packet to arrive
         unsafe {
             WaitForSingleObject(event, u32::MAX);
         }
-        while driver.read_packet(&mut request).ok().is_some() {
-            let ib = request.take_packet().unwrap();
+        loop {
+            // Initialize an EthRequestMut to pass to the driver API
+            let mut read_request = EthRequestMut::new(adapters[interface_index].get_handle());
 
-            let direction_flags = ib.get_device_flags();
+            // Set the packet buffer
+            read_request.set_packet(&mut packet);
+
+            // Read a packet from the network interface
+            if driver.read_packet(&mut read_request).ok().is_none() {
+                // No more packets in the queue, break the loop
+                break;
+            }
+
+            // Get the direction of the packet
+            let direction_flags = packet.get_device_flags();
 
             // Print packet information
             if direction_flags == DirectionFlags::PACKET_FLAG_ON_SEND {
-                println!("\nMSTCP --> Interface ({} bytes)\n", ib.get_length());
+                println!("\nMSTCP --> Interface ({} bytes)\n", packet.get_length());
             } else {
-                println!("\nInterface --> MSTCP ({} bytes)\n", ib.get_length());
+                println!("\nInterface --> MSTCP ({} bytes)\n", packet.get_length());
             }
 
-            // Print some informations about the sliced packet
-            print_packet_info(ib);
+            // Print some information about the packet
+            print_packet_info(&packet);
+
+            // Initialize an EthRequest to pass to the driver API
+            let mut write_request = EthRequest::new(adapters[interface_index].get_handle());
+
+            // Set the packet buffer
+            write_request.set_packet(&packet);
 
             // Re-inject the packet back into the network stack
             if direction_flags == DirectionFlags::PACKET_FLAG_ON_SEND {
-                match driver.send_packet_to_adapter(&request) {
+                // Send the packet to the network interface
+                match driver.send_packet_to_adapter(&write_request) {
                     Ok(_) => {}
                     Err(err) => println!("Error sending packet to adapter. Error code = {err}"),
                 };
             } else {
-                match driver.send_packet_to_mstcp(&request) {
+                // Send the packet to the TCP/IP stack
+                match driver.send_packet_to_mstcp(&write_request) {
                     Ok(_) => {}
                     Err(err) => println!("Error sending packet to mstcp. Error code = {err}"),
                 }
             }
         }
 
-        let _ = unsafe {
-            ResetEvent(event) // Reset the event to continue waiting for packets to arrive.
-        };
+        // Reset the event to continue waiting for packets to arrive
+        let _ = unsafe { ResetEvent(event) };
     }
 
-    // Put the network interface into default mode.
+    // Put the network interface back into default mode
     driver.set_adapter_mode(
         adapters[interface_index].get_handle(),
         FilterFlags::default(),
     )?;
 
-    let _ = unsafe {
-        CloseHandle(event) // Close the event handle.
-    };
+    // Close the event handle
+    let _ = unsafe { CloseHandle(event) };
 
+    // Return success
     Ok(())
 }
 
@@ -730,19 +787,19 @@ fn main() -> Result<()> {
 ///
 /// # Arguments
 ///
-/// * `packet` - A mutable reference to an `IntermediateBuffer` containing the network packet.
+/// * `packet` - A reference to an `IntermediateBuffer` containing the network packet.
 ///
 /// # Examples
 ///
 /// ```no_run
-/// let mut packet: IntermediateBuffer = ...;
-/// print_packet_info(&mut packet);
+/// let packet: IntermediateBuffer = ...;
+/// print_packet_info(&packet);
 /// ```
-fn print_packet_info(packet: &mut IntermediateBuffer) {
-    let mut eth_hdr = EthernetFrame::new_unchecked(packet.get_data_mut());
+fn print_packet_info(packet: &IntermediateBuffer) {
+    let eth_hdr = EthernetFrame::new_unchecked(packet.get_data());
     match eth_hdr.ethertype() {
         EthernetProtocol::Ipv4 => {
-            let mut ipv4_packet = Ipv4Packet::new_unchecked(eth_hdr.payload_mut());
+            let ipv4_packet = Ipv4Packet::new_unchecked(eth_hdr.payload());
             println!(
                 "  Ipv4 {:?} => {:?}",
                 ipv4_packet.src_addr(),
@@ -750,7 +807,7 @@ fn print_packet_info(packet: &mut IntermediateBuffer) {
             );
             match ipv4_packet.next_header() {
                 IpProtocol::Icmp => {
-                    let icmp_packet = Icmpv4Packet::new_unchecked(ipv4_packet.payload_mut());
+                    let icmp_packet = Icmpv4Packet::new_unchecked(ipv4_packet.payload());
                     println!(
                         "ICMPv4: Type: {:?} Code: {:?}",
                         icmp_packet.msg_type(),
@@ -758,7 +815,7 @@ fn print_packet_info(packet: &mut IntermediateBuffer) {
                     );
                 }
                 IpProtocol::Tcp => {
-                    let tcp_packet = TcpPacket::new_unchecked(ipv4_packet.payload_mut());
+                    let tcp_packet = TcpPacket::new_unchecked(ipv4_packet.payload());
                     println!(
                         "   TCP {:?} -> {:?}",
                         tcp_packet.src_port(),
@@ -766,7 +823,7 @@ fn print_packet_info(packet: &mut IntermediateBuffer) {
                     );
                 }
                 IpProtocol::Udp => {
-                    let udp_packet = UdpPacket::new_unchecked(ipv4_packet.payload_mut());
+                    let udp_packet = UdpPacket::new_unchecked(ipv4_packet.payload());
                     println!(
                         "   UDP {:?} -> {:?}",
                         udp_packet.src_port(),
@@ -779,7 +836,7 @@ fn print_packet_info(packet: &mut IntermediateBuffer) {
             }
         }
         EthernetProtocol::Ipv6 => {
-            let mut ipv6_packet = Ipv6Packet::new_unchecked(eth_hdr.payload_mut());
+            let ipv6_packet = Ipv6Packet::new_unchecked(eth_hdr.payload());
             println!(
                 "  Ipv6 {:?} => {:?}",
                 ipv6_packet.src_addr(),
@@ -787,7 +844,7 @@ fn print_packet_info(packet: &mut IntermediateBuffer) {
             );
             match ipv6_packet.next_header() {
                 IpProtocol::Icmpv6 => {
-                    let icmpv6_packet = Icmpv6Packet::new_unchecked(ipv6_packet.payload_mut());
+                    let icmpv6_packet = Icmpv6Packet::new_unchecked(ipv6_packet.payload());
                     println!(
                         "ICMPv6 packet: Type: {:?} Code: {:?}",
                         icmpv6_packet.msg_type(),
@@ -795,7 +852,7 @@ fn print_packet_info(packet: &mut IntermediateBuffer) {
                     );
                 }
                 IpProtocol::Tcp => {
-                    let tcp_packet = TcpPacket::new_unchecked(ipv6_packet.payload_mut());
+                    let tcp_packet = TcpPacket::new_unchecked(ipv6_packet.payload());
                     println!(
                         "   TCP {:?} -> {:?}",
                         tcp_packet.src_port(),
@@ -803,7 +860,7 @@ fn print_packet_info(packet: &mut IntermediateBuffer) {
                     );
                 }
                 IpProtocol::Udp => {
-                    let udp_packet = UdpPacket::new_unchecked(ipv6_packet.payload_mut());
+                    let udp_packet = UdpPacket::new_unchecked(ipv6_packet.payload());
                     println!(
                         "   UDP {:?} -> {:?}",
                         udp_packet.src_port(),
@@ -816,7 +873,7 @@ fn print_packet_info(packet: &mut IntermediateBuffer) {
             }
         }
         EthernetProtocol::Arp => {
-            let arp_packet = ArpPacket::new_unchecked(eth_hdr.payload_mut());
+            let arp_packet = ArpPacket::new_unchecked(eth_hdr.payload());
             println!("ARP packet: {:?}", arp_packet);
         }
         EthernetProtocol::Unknown(_) => {

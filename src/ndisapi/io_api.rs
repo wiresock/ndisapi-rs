@@ -78,23 +78,23 @@ impl Ndisapi {
     }
 
     /// This function retrieves a single network packet from the NDIS filter driver associated with
-    /// the specified `EthRequest`.
+    /// the specified `EthRequestMut`.
     ///
     /// # Arguments
     ///
-    /// * `packet: &mut EthRequest`: A mutable reference to the `EthRequest` structure that will be filled with
+    /// * `packet: &mut EthRequestMut`: A mutable reference to the `EthRequestMut` structure that will be filled with
     ///   the retrieved packet data.
     ///
     /// # Returns
     ///
     /// * `Result<()>`: If successful, returns `Ok(())`. Otherwise, returns an error.
-    pub fn read_packet(&self, packet: &mut EthRequest) -> Result<()> {
+    pub fn read_packet(&self, packet: &mut EthRequestMut) -> Result<()> {
         match unsafe {
             DeviceIoControl(
                 self.driver_handle,
                 IOCTL_NDISRD_READ_PACKET,
-                Some(packet as *const EthRequest as *const std::ffi::c_void),
-                size_of::<EthRequest>() as u32,
+                Some(packet as *const EthRequestMut as *const std::ffi::c_void),
+                size_of::<EthRequestMut>() as u32,
                 None,
                 0u32,
                 None,
@@ -107,26 +107,26 @@ impl Ndisapi {
     }
 
     /// This function retrieves a block of network packets from the NDIS filter driver associated with
-    /// the specified `EthMRequest<N>`.
+    /// the specified `EthMRequestMut<N>`.
     ///
     /// # Arguments
     ///
-    /// * `packets: &mut EthMRequest<N>`: A mutable reference to the `EthMRequest<N>` structure that will be filled with
+    /// * `packets: &mut EthMRequestMut<N>`: A mutable reference to the `EthMRequestMut<N>` structure that will be filled with
     ///   the retrieved packet data.
     ///
     /// # Returns
     ///
     /// * `Result<usize>`: If successful, returns `Ok(packet_count)` where `packet_count` is the number of packets read
-    ///   into `EthMRequest<N>`. Otherwise, returns an error.
-    pub fn read_packets<const N: usize>(&self, packets: &mut EthMRequest<N>) -> Result<usize> {
+    ///   into `EthMRequestMut<N>`. Otherwise, returns an error.
+    pub fn read_packets<const N: usize>(&self, packets: &mut EthMRequestMut<N>) -> Result<usize> {
         match unsafe {
             DeviceIoControl(
                 self.driver_handle,
                 IOCTL_NDISRD_READ_PACKETS,
-                Some(packets as *const EthMRequest<N> as *const std::ffi::c_void),
-                size_of::<EthMRequest<N>>() as u32,
-                Some(packets as *mut EthMRequest<N> as *mut std::ffi::c_void),
-                size_of::<EthMRequest<N>>() as u32,
+                Some(packets as *const EthMRequestMut<N> as *const std::ffi::c_void),
+                size_of::<EthMRequestMut<N>>() as u32,
+                Some(packets as *mut EthMRequestMut<N> as *mut std::ffi::c_void),
+                size_of::<EthMRequestMut<N>>() as u32,
                 None,
                 None,
             )

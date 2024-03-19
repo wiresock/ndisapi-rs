@@ -111,7 +111,7 @@ impl AsyncNdisapiAdapter {
 
     /// Asynchronously reads a packet from the network adapter, filling the provided `IntermediateBuffer`.
     ///
-    /// This function initializes an `EthRequest` with the handle to the adapter and the provided `IntermediateBuffer`.
+    /// This function initializes an `EthRequestMut` with the handle to the adapter and the provided `IntermediateBuffer`.
     /// Then it tries to read a packet from the network adapter. If the initial read operation fails,
     /// the function awaits the next event from the `Win32EventStream` before retrying the read operation.
     ///
@@ -135,8 +135,8 @@ impl AsyncNdisapiAdapter {
     pub async fn read_packet(&mut self, packet: &mut IntermediateBuffer) -> Result<()> {
         let driver = self.driver.clone();
 
-        // Initialize EthPacket to pass to driver API
-        let mut request = ndisapi::EthRequest::new(self.adapter_handle);
+        // Initialize EthPacketMut to pass to driver API
+        let mut request = ndisapi::EthRequestMut::new(self.adapter_handle);
         request.set_packet(packet);
 
         // First try to read packet
@@ -162,7 +162,7 @@ impl AsyncNdisapiAdapter {
 
     /// Asynchronously reads a number of packets from the network adapter and returns the number of packets successfully read.
     ///
-    /// This function creates an `EthMRequest` with the provided `IntermediateBuffer`s and the handle to the adapter.
+    /// This function creates an `EthMRequestMut` with the provided `IntermediateBuffer`s and the handle to the adapter.
     /// It then attempts to read packets from the network adapter. If the initial read operation fails,
     /// the function waits for a packet event before retrying the read operation.
     ///
@@ -194,7 +194,7 @@ impl AsyncNdisapiAdapter {
 
         // Initialize EthMPacket to pass to driver API.
         let mut request =
-            ndisapi::EthMRequest::<N>::from_iter(self.adapter_handle, packets.into_iter());
+            ndisapi::EthMRequestMut::<N>::from_iter(self.adapter_handle, packets.into_iter());
 
         // first try to read packets
         if driver.read_packets(&mut request).is_ok() {
@@ -259,7 +259,7 @@ impl AsyncNdisapiAdapter {
     ///
     /// # Arguments
     ///
-    /// * `packets` - An iterator over mutable references to `IntermediateBuffer` objects that contain the Ethernet packets to be sent to the network adapter.
+    /// * `packets` - An iterator over references to `IntermediateBuffer` objects that contain the Ethernet packets to be sent to the network adapter.
     ///
     /// # Safety
     ///
@@ -280,7 +280,7 @@ impl AsyncNdisapiAdapter {
     /// On successful operation, this function returns an `Ok(usize)` that represents the number of packets successfully sent to the network adapter. If the operation fails, an error is returned.
     pub fn send_packets_to_adapter<'a, const N: usize>(
         &mut self,
-        packets: impl IntoIterator<Item = &'a mut IntermediateBuffer>,
+        packets: impl IntoIterator<Item = &'a IntermediateBuffer>,
     ) -> Result<usize> {
         // Initialize EthMPacket to pass to driver API.
         let request =
@@ -300,7 +300,7 @@ impl AsyncNdisapiAdapter {
     ///
     /// # Arguments
     ///
-    /// * `packet` - A mutable reference to an `IntermediateBuffer` that represents the Ethernet packet to be sent.
+    /// * `packet` - A reference to an `IntermediateBuffer` that represents the Ethernet packet to be sent.
     ///
     /// # Safety
     ///
@@ -313,7 +313,7 @@ impl AsyncNdisapiAdapter {
     /// # Returns
     ///
     /// On successful operation, this function returns `Ok(())`. If the operation fails, an error is returned.
-    pub fn send_packet_to_mstcp(&self, packet: &mut IntermediateBuffer) -> Result<()> {
+    pub fn send_packet_to_mstcp(&self, packet: &IntermediateBuffer) -> Result<()> {
         // Initialize EthPacket to pass to driver API.
         let mut request = ndisapi::EthRequest::new(self.adapter_handle);
         request.set_packet(packet);
@@ -329,7 +329,7 @@ impl AsyncNdisapiAdapter {
     ///
     /// # Arguments
     ///
-    /// * `packets` - An iterator over mutable references to `IntermediateBuffer`s representing the Ethernet packets to be sent.
+    /// * `packets` - An iterator over references to `IntermediateBuffer`s representing the Ethernet packets to be sent.
     ///
     /// # Safety
     ///
@@ -349,7 +349,7 @@ impl AsyncNdisapiAdapter {
     /// On successful operation, this function returns `Ok(usize)`, where `usize` is the number of packets sent. If the operation fails, an error is returned.
     pub fn send_packets_to_mstcp<'a, const N: usize>(
         &mut self,
-        packets: impl IntoIterator<Item = &'a mut IntermediateBuffer>,
+        packets: impl IntoIterator<Item = &'a IntermediateBuffer>,
     ) -> Result<usize> {
         // Initialize EthMPacket to pass to driver API.
         let request =

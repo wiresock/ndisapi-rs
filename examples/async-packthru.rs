@@ -306,7 +306,7 @@ impl PacketInfo {
     ///
     /// # Arguments
     ///
-    /// * `packet`: A mutable reference to an `IntermediateBuffer` that contains the packet data.
+    /// * `packet`: A reference to an `IntermediateBuffer` that contains the packet data.
     ///
     /// # Returns
     ///
@@ -320,7 +320,7 @@ impl PacketInfo {
     /// * If the ethertype is IPv6, it calls `handle_ipv6_packet` to handle the packet.
     /// * If the ethertype is ARP, it calls `handle_arp_packet` to handle the packet.
     /// * For any other ethertype, it creates a `PacketInfo` with the `ethertype` field set to the ethertype of the Ethernet frame and all other fields set to their default values.
-    pub fn new(packet: &mut IntermediateBuffer) -> Self {
+    pub fn new(packet: &IntermediateBuffer) -> Self {
         let eth_hdr = EthernetFrame::new_unchecked(packet.get_data());
         match eth_hdr.ethertype() {
             EthernetProtocol::Ipv4 => Self::handle_ipv4_packet(&eth_hdr),
@@ -427,11 +427,11 @@ async fn async_loop(adapter: &mut AsyncNdisapiAdapter, tx: mpsc::Sender<PacketIn
 
     // Initialize a vector of IntermediateBuffers, `ibs`, to store network packet data.
     // Each IntermediateBuffer is heap-allocated, providing a structure to handle raw packet data.
-    let mut ibs: Vec<IntermediateBuffer> = vec![Default::default(); PACKET_NUMBER];
+    let mut packets: Vec<IntermediateBuffer> = vec![Default::default(); PACKET_NUMBER];
 
     loop {
         // Read packets from the adapter.
-        let packets_read = match adapter.read_packets::<PACKET_NUMBER>(&mut ibs).await {
+        let packets_read = match adapter.read_packets::<PACKET_NUMBER>(&mut packets).await {
             Ok(packets_read) => {
                 if packets_read == 0 {
                     println!("No packets read. Continue reading.");
@@ -445,17 +445,17 @@ async fn async_loop(adapter: &mut AsyncNdisapiAdapter, tx: mpsc::Sender<PacketIn
             }
         };
 
-        for ib in ibs[0..packets_read].iter_mut() {
+        for packet in packets[0..packets_read].iter() {
             // Get packet information as a string.
-            let packet_info = PacketInfo::new(ib);
+            let packet_info = PacketInfo::new(packet);
 
             // Send packet information to the tx channel.
             tx.send(packet_info).await.unwrap();
         }
 
         // Partition the iterator into two collections based on the device flag.
-        let (send_packets, receive_packets): (Vec<_>, Vec<_>) = ibs[0..packets_read]
-            .iter_mut()
+        let (send_packets, receive_packets): (Vec<_>, Vec<_>) = packets[0..packets_read]
+            .iter()
             .partition(|ib| ib.get_device_flags() == DirectionFlags::PACKET_FLAG_ON_SEND);
 
         // Re-inject packets back into the network stack
