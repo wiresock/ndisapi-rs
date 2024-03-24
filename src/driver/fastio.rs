@@ -89,14 +89,26 @@ pub struct InitializeFastIoParams<const N: usize> {
     pub data_size: u32,
 }
 
+/// A Rust struct that represents an unsorted read request.
+///
+/// Rust equivalent for _UNSORTED_READ_SEND_REQUEST.
+#[repr(C, packed)]
+#[derive(Copy, Clone)]
+pub struct UnsortedSendRequest<'a, const N: usize> {
+    /// packets: A pointer to an array of Option<&IntermediateBuffer> of size N.
+    pub packets: Option<&'a [Option<&'a IntermediateBuffer>; N]>,
+    /// packets_num: A u32 representing the number of packets in the request.
+    pub packets_num: u32,
+}
+
 /// A Rust struct that represents an unsorted read/send request.
 ///
 /// Rust equivalent for _UNSORTED_READ_SEND_REQUEST.
 #[repr(C, packed)]
-#[derive(Debug, Copy, Clone)]
-pub struct UnsortedReadSendRequest<const N: usize> {
-    /// packets: A mutable pointer to an array of IntermediateBuffer of size N.
-    pub packets: *mut [IntermediateBuffer; N],
+#[derive(Copy, Clone)]
+pub struct UnsortedReadRequest<'a, const N: usize> {
+    /// packets: A pointer to an array of Option<&mut IntermediateBuffer> of size N.
+    pub packets: Option<&'a [Option<&'a mut IntermediateBuffer>; N]>,
     /// packets_num: A u32 representing the number of packets in the request.
     pub packets_num: u32,
 }

@@ -200,23 +200,90 @@ pub struct AdapterMode {
 ///
 /// A Rust equivalent for the [_NDISRD_ETH_Packet](https://www.ntkernel.com/docs/windows-packet-filter-documentation/structures/_ndisrd_eth_packet/) structure.
 ///
-/// The `buffer` field is an Option wrapping a mutable reference to an `IntermediateBuffer`. This design allows for flexibility
-/// when manipulating Ethernet packets, as a packet may not always have a buffer associated with it (i.e., the buffer may be `None`).
+/// The `buffer` field is an optional mutable reference to an `IntermediateBuffer`. This design allows for flexibility
+/// when manipulating Ethernet packets, as a packet may not always have a buffer associated with it.
+/// This structure is particularly useful when the packet data needs to be modified.
 #[repr(C)]
-pub struct EthPacket<'a> {
+pub struct EthPacketMut<'a> {
     /// An optional mutable reference to an `IntermediateBuffer` representing the buffer for this Ethernet packet.
     pub buffer: Option<&'a mut IntermediateBuffer>,
 }
 
+/// This structure represents an Ethernet packet with an optional reference to an `IntermediateBuffer`.
+///
+/// A Rust equivalent for the [_NDISRD_ETH_Packet](https://www.ntkernel.com/docs/windows-packet-filter-documentation/structures/_ndisrd_eth_packet/) structure.
+///
+/// The `buffer` field is an optional reference to an `IntermediateBuffer`. This design allows for flexibility
+/// when manipulating Ethernet packets, as a packet may not always have a buffer associated with it.
+/// This structure is particularly useful when the packet data needs to be read but not modified.
+#[repr(C)]
+pub struct EthPacket<'a> {
+    /// An optional reference to an `IntermediateBuffer` representing the buffer for this Ethernet packet.
+    pub buffer: Option<&'a IntermediateBuffer>,
+}
+
+/// Implements the `Into` trait for `EthPacketMut`.
+///
+/// This implementation facilitates the conversion of an `EthPacketMut` into an `Option<&'a mut IntermediateBuffer>`.
+/// This conversion is useful when there is a need to directly manipulate the buffer of a packet. By implementing `Into` for `EthPacketMut`,
+/// we provide a convenient and idiomatic way to perform this transformation.
+impl<'a> From<EthPacketMut<'a>> for Option<&'a mut IntermediateBuffer> {
+    fn from(val: EthPacketMut<'a>) -> Self {
+        val.buffer
+    }
+}
+
+/// Implements the `AsRef` trait for `EthPacketMut`.
+///
+/// This implementation facilitates the conversion of an `EthPacketMut` into a reference to an `Option<&'a mut IntermediateBuffer>`.
+/// This conversion is useful when there is a need to directly access the buffer of a packet. By implementing `AsRef` for `EthPacketMut`,
+/// we provide a convenient and idiomatic way to perform this transformation.
+impl<'a> AsRef<Option<&'a mut IntermediateBuffer>> for EthPacketMut<'a> {
+    fn as_ref(&self) -> &Option<&'a mut IntermediateBuffer> {
+        &self.buffer
+    }
+}
+
+/// Implements the `AsMut` trait for `EthPacketMut`.
+///
+/// This implementation facilitates the conversion of an `EthPacketMut` into a mutable reference to an `Option<&'a mut IntermediateBuffer>`.
+/// This conversion is useful when there is a need to directly manipulate the buffer of a packet. By implementing `AsMut` for `EthPacketMut`,
+/// we provide a convenient and idiomatic way to perform this transformation.
+impl<'a> AsMut<Option<&'a mut IntermediateBuffer>> for EthPacketMut<'a> {
+    fn as_mut(&mut self) -> &mut Option<&'a mut IntermediateBuffer> {
+        &mut self.buffer
+    }
+}
+
+/// Implements the `Default` trait for `EthPacketMut`.
+///
+/// This implementation allows for the creation of an "empty" `EthPacketMut`, i.e., a packet without a buffer. This is useful when
+/// initializing a variable of type `EthPacketMut` without immediately associating a buffer with it.
+impl<'a> Default for EthPacketMut<'a> {
+    fn default() -> Self {
+        EthPacketMut { buffer: None }
+    }
+}
+
 /// Implements the `Into` trait for `EthPacket`.
 ///
-/// The purpose of this implementation is to facilitate the conversion of an `EthPacket` into an `Option<&'a mut IntermediateBuffer>`.
-///
-/// The conversion is valuable when there is a need to directly manipulate the buffer of a packet. By implementing `Into` for `EthPacket`,
+/// This implementation facilitates the conversion of an `EthPacket` into an `Option<&'a IntermediateBuffer>`.
+/// This conversion is useful when there is a need to directly manipulate the buffer of a packet. By implementing `Into` for `EthPacket`,
 /// we provide a convenient and idiomatic way to perform this transformation.
-impl<'a> From<EthPacket<'a>> for Option<&'a mut IntermediateBuffer> {
+impl<'a> From<EthPacket<'a>> for Option<&'a IntermediateBuffer> {
     fn from(val: EthPacket<'a>) -> Self {
         val.buffer
+    }
+}
+
+/// Implements the `AsRef` trait for `EthPacket`.
+///
+/// This implementation facilitates the conversion of an `EthPacket` into a reference to an `Option<&'a IntermediateBuffer>`.
+/// This conversion is useful when there is a need to directly access the buffer of a packet. By implementing `AsRef` for `EthPacket`,
+/// we provide a convenient and idiomatic way to perform this transformation.
+impl<'a> AsRef<Option<&'a IntermediateBuffer>> for EthPacket<'a> {
+    fn as_ref(&self) -> &Option<&'a IntermediateBuffer> {
+        &self.buffer
     }
 }
 
@@ -230,6 +297,19 @@ impl<'a> Default for EthPacket<'a> {
     }
 }
 
+/// This structure represents a request for an Ethernet packet, containing a network adapter handle and an `EthPacketMut`.
+///
+/// A Rust equivalent for the [_ETH_REQUEST](https://www.ntkernel.com/docs/windows-packet-filter-documentation/structures/_eth_request/) structure.
+///
+/// `adapter_handle` is a handle to the network adapter associated with this request. The `packet` field is an `EthPacketMut` that represents the Ethernet packet for this request.
+#[repr(C)]
+pub struct EthRequestMut<'a> {
+    /// A handle to the network adapter associated with this request.
+    pub adapter_handle: HANDLE,
+    /// An `EthPacketMut` representing the Ethernet packet for this request.
+    pub packet: EthPacketMut<'a>,
+}
+
 /// This structure represents a request for an Ethernet packet, containing a network adapter handle and an `EthPacket`.
 ///
 /// A Rust equivalent for the [_ETH_REQUEST](https://www.ntkernel.com/docs/windows-packet-filter-documentation/structures/_eth_request/) structure.
@@ -241,6 +321,41 @@ pub struct EthRequest<'a> {
     pub adapter_handle: HANDLE,
     /// An `EthPacket` representing the Ethernet packet for this request.
     pub packet: EthPacket<'a>,
+}
+
+/// Provides methods for manipulating the `EthPacketMut` within an `EthRequestMut`.
+impl<'a> EthRequestMut<'a> {
+    /// Creates a new `EthRequestMut` with the specified adapter handle and an empty `EthPacketMut`.
+    ///
+    /// # Arguments
+    ///
+    /// * `adapter_handle` - A handle to the network adapter to be associated with this request.
+    ///
+    /// # Returns
+    ///
+    /// * A new `EthRequestMut` instance with the specified adapter handle and an empty `EthPacketMut`.
+    pub fn new(adapter_handle: HANDLE) -> Self {
+        Self {
+            adapter_handle,
+            packet: EthPacketMut { buffer: None },
+        }
+    }
+
+    /// Takes the `EthPacketMut` out from the `EthRequestMut`, replacing it with `None`.
+    ///
+    /// This is useful when you want to use the packet's buffer elsewhere, while ensuring that the `EthRequestMut` no longer has access to it.
+    pub fn take_packet(&mut self) -> Option<&'a mut IntermediateBuffer> {
+        self.packet.buffer.take()
+    }
+
+    /// Sets the `EthPacketMut` for the `EthRequestMut` using a mutable reference to an `IntermediateBuffer`.
+    ///
+    /// This method allows you to associate a new buffer with the `EthRequestMut`. This is useful when you have a buffer that you want to send with the `EthRequestMut`.
+    pub fn set_packet(&mut self, buffer: &'a mut IntermediateBuffer) {
+        self.packet = EthPacketMut {
+            buffer: Some(buffer),
+        };
+    }
 }
 
 /// Provides methods for manipulating the `EthPacket` within an `EthRequest`.
@@ -264,18 +379,35 @@ impl<'a> EthRequest<'a> {
     /// Takes the `EthPacket` out from the `EthRequest`, replacing it with `None`.
     ///
     /// This is useful when you want to use the packet's buffer elsewhere, while ensuring that the `EthRequest` no longer has access to it.
-    pub fn take_packet(&mut self) -> Option<&'a mut IntermediateBuffer> {
+    pub fn take_packet(&mut self) -> Option<&'a IntermediateBuffer> {
         self.packet.buffer.take()
     }
 
-    /// Sets the `EthPacket` for the `EthRequest` using a mutable reference to an `IntermediateBuffer`.
+    /// Sets the `EthPacket` for the `EthRequest` using a reference to an `IntermediateBuffer`.
     ///
     /// This method allows you to associate a new buffer with the `EthRequest`. This is useful when you have a buffer that you want to send with the `EthRequest`.
-    pub fn set_packet(&mut self, buffer: &'a mut IntermediateBuffer) {
+    pub fn set_packet(&mut self, buffer: &'a IntermediateBuffer) {
         self.packet = EthPacket {
             buffer: Some(buffer),
         };
     }
+}
+
+/// This structure represents a request for multiple Ethernet packets, containing a network adapter handle, packet number, packet success count, and an array of `EthPacketMut` instances.
+///
+/// A Rust equivalent for the [_ETH_M_REQUEST](https://www.ntkernel.com/docs/windows-packet-filter-documentation/structures/_eth_m_request/) structure.
+///
+/// `adapter_handle` is a handle to the network adapter associated with this request. `packet_number` is the number of packets in the `packets` array. `packet_success` is the number of packets that have been successfully processed. `packets` is an array of `EthPacketMut` instances representing the Ethernet packets for this request.
+#[repr(C)]
+pub struct EthMRequestMut<'a, const N: usize> {
+    /// A handle to the network adapter associated with this request.
+    adapter_handle: HANDLE,
+    /// The number of packets in the `packets` array.
+    packet_number: u32,
+    /// The number of successfully processed packets.
+    packet_success: u32,
+    /// An array of `EthPacketMut` representing the Ethernet packets for this request.
+    packets: [EthPacketMut<'a>; N],
 }
 
 /// This structure represents a request for multiple Ethernet packets, containing a network adapter handle, packet number, packet success count, and an array of `EthPacket` instances.
@@ -295,6 +427,240 @@ pub struct EthMRequest<'a, const N: usize> {
     packets: [EthPacket<'a>; N],
 }
 
+/// Provides methods for manipulating the `EthPacketMut` instances within an `EthMRequestMut`.
+impl<'a, const N: usize> EthMRequestMut<'a, N> {
+    /// Creates a new `EthMRequestMut` with the specified adapter handle.
+    ///
+    /// All packets in the request are initialized to empty.
+    pub fn new(adapter_handle: HANDLE) -> Self {
+        let packets = [(); N].map(|_| EthPacketMut { buffer: None });
+        Self {
+            adapter_handle,
+            packet_number: 0,
+            packet_success: 0,
+            packets,
+        }
+    }
+
+    /// Creates a new `EthMRequestMut` from an iterator over `&mut IntermediateBuffer`.
+    ///
+    /// This constructor will attempt to consume up to `N` items from the iterator to initialize the `packets` array.
+    /// If the iterator contains fewer than `N` items, the remaining entries in the `packets` array will be left as `None`.
+    ///
+    /// # Arguments
+    ///
+    /// * `adapter_handle`: A handle to the network adapter associated with this request.
+    /// * `iter`: An iterator over mutable references to `IntermediateBuffer`.
+    ///
+    /// # Returns
+    ///
+    /// A new `EthMRequestMut`.
+    pub fn from_iter(
+        adapter_handle: HANDLE,
+        iter: impl Iterator<Item = &'a mut IntermediateBuffer>,
+    ) -> Self {
+        let mut packets = [(); N].map(|_| EthPacketMut { buffer: None });
+        let mut packet_number = 0;
+
+        for (buffer, packet) in iter.zip(packets.iter_mut()) {
+            packet.buffer = Some(buffer);
+            packet_number += 1;
+        }
+
+        Self {
+            adapter_handle,
+            packet_number,
+            packet_success: 0,
+            packets,
+        }
+    }
+
+    /// Returns an iterator that yields `Some(IntermediateBuffer)` for each non-empty buffer in `packets`, in order,
+    /// up to `packet_success`.
+    ///
+    /// This method is used to drain the successful packets from the request. It iterates over the packets in the request,
+    /// and for each packet that has a buffer (i.e., is not empty), it decreases the packet number and removes the buffer from the packet.
+    /// The removed buffer (which is a mutable reference to an `IntermediateBuffer`) is then yielded by the iterator.
+    /// This process continues until either all packets have been inspected or a number of packets equal to `packet_success` have been drained.
+    ///
+    /// # Returns
+    ///
+    /// An iterator over `Option<&'a mut IntermediateBuffer>`. Each `Some(IntermediateBuffer)` item in the iterator represents a successfully processed packet.
+    pub fn drain_success(&mut self) -> impl Iterator<Item = &'a mut IntermediateBuffer> + '_ {
+        self.packets
+            .iter_mut()
+            .take(self.packet_success as usize)
+            .filter_map(|packet| {
+                if packet.buffer.is_some() {
+                    self.packet_number -= 1;
+                    packet.buffer.take()
+                } else {
+                    None
+                }
+            })
+    }
+
+    /// Returns an iterator that yields `Some(IntermediateBuffer)` for each non-empty buffer in `packets`.
+    ///
+    /// This method is used to drain the packets from the request. It iterates over the packets in the request,
+    /// and for each packet that has a buffer (i.e., is not empty), it decreases the packet number and removes the buffer from the packet.
+    /// The removed buffer (which is a mutable reference to an `IntermediateBuffer`) is then yielded by the iterator.
+    ///
+    /// # Returns
+    ///
+    /// An iterator over `Option<&'a mut IntermediateBuffer>`. Each `Some(IntermediateBuffer)` item in the iterator represents a packet.
+    pub fn drain(&mut self) -> impl Iterator<Item = &'a mut IntermediateBuffer> + '_ {
+        self.packets.iter_mut().filter_map(|packet| {
+            if packet.buffer.is_some() {
+                self.packet_number -= 1;
+                packet.buffer.take()
+            } else {
+                None
+            }
+        })
+    }
+
+    /// Sets the `IntermediateBuffer` for the `EthPacketMut` at the specified index.
+    ///
+    /// This method is used to associate a mutable reference to an `IntermediateBuffer` with an `EthPacketMut` at a specific index in the `packets` array.
+    /// If the index is valid (i.e., less than `N`), the method sets the `buffer` field of the `EthPacketMut` at the specified index to `Some(buffer)`,
+    /// where `buffer` is a mutable reference to an `IntermediateBuffer`.
+    ///
+    /// # Arguments
+    ///
+    /// * `index`: A `usize` representing the index at which to set the `IntermediateBuffer`.
+    /// * `buffer`: A mutable reference to an `IntermediateBuffer` to be associated with the `EthPacketMut`.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(())` if the index is valid and the `IntermediateBuffer` has been successfully set.
+    /// * `Err(ERROR_INVALID_PARAMETER.into())` if the index is not valid.
+    fn set_packet(&mut self, index: usize, buffer: &'a mut IntermediateBuffer) -> Result<()> {
+        if index < N {
+            self.packets[index].buffer = Some(buffer);
+            Ok(())
+        } else {
+            Err(ERROR_INVALID_PARAMETER.into())
+        }
+    }
+
+    /// Returns the number of packets in the `packets` array.
+    ///
+    /// This method is used to get the total number of packets currently stored in the `packets` array.
+    /// The `packets` array is used to store the packets that are to be sent or received.
+    ///
+    /// # Returns
+    /// A `u32` value representing the total number of packets in the `packets` array.
+    pub fn get_packet_number(&self) -> u32 {
+        self.packet_number
+    }
+
+    /// Erases all `EthPacketMut` instances within the `packets` array and releases all references.
+    ///
+    /// This method is used to reset the state of the `EthMRequest` instance. It iterates over the `packets` array,
+    /// setting each `buffer` field to `None`, effectively releasing all references to `IntermediateBuffer` instances.
+    /// It also resets the `packet_number` and `packet_success` counters to 0.
+    pub fn reset(&mut self) {
+        for packet in self.packets.iter_mut() {
+            packet.buffer = None;
+        }
+        self.packet_number = 0;
+        self.packet_success = 0;
+    }
+
+    /// Returns the number of successfully processed packets.
+    ///
+    /// This method is used to get the total number of packets that have been successfully processed.
+    /// The `packet_success` field is incremented each time a packet is successfully processed.
+    ///
+    /// # Returns
+    /// A `u32` value representing the total number of successfully processed packets.
+    pub fn get_packet_success(&self) -> u32 {
+        self.packet_success
+    }
+
+    /// Adds an `IntermediateBuffer` to the `packets` array if there's available space.
+    ///
+    /// This method is used to add a new packet to the `packets` array. It first checks if the current number of packets
+    /// is less than the maximum allowed (`N`). If there is space available, it finds the first empty slot in the `packets`
+    /// array and inserts the new packet there, incrementing the `packet_number` counter. If the `packets` array is full,
+    /// it returns an `Err` with `ERROR_BUFFER_OVERFLOW`.
+    ///
+    /// # Arguments
+    ///
+    /// * `packet`: A mutable reference to an `IntermediateBuffer` representing the new packet to be added.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(())` if the packet was successfully added.
+    /// * `Err(ERROR_BUFFER_OVERFLOW.into())` if the `packets` array is full.
+    pub fn push(&mut self, packet: &'a mut IntermediateBuffer) -> Result<()> {
+        if (self.packet_number as usize) < N {
+            if let Some(index) = self.first_empty_packet() {
+                self.packets[index] = EthPacketMut {
+                    buffer: Some(packet),
+                };
+                self.packet_number += 1;
+                Ok(())
+            } else {
+                Err(ERROR_BUFFER_OVERFLOW.into())
+            }
+        } else {
+            Err(ERROR_BUFFER_OVERFLOW.into())
+        }
+    }
+
+    /// Returns the index of the first `EthPacketMut` which contains `None`.
+    ///
+    /// This method is used to find the first empty slot in the `packets` array. It iterates over the `packets` array,
+    /// and for each `EthPacketMut` that does not have a buffer (i.e., its `buffer` field is `None`), it returns the index of that packet.
+    /// If all `EthPacketMut` instances in the `packets` array have a buffer, this method returns `None`.
+    ///
+    /// # Returns
+    /// An `Option<usize>` that is `Some(index)` if an empty `EthPacketMut` is found, where `index` is the index of the empty packet.
+    /// If no empty `EthPacketMut` is found, it returns `None`.
+    fn first_empty_packet(&self) -> Option<usize> {
+        self.packets
+            .iter()
+            .position(|packet| packet.buffer.is_none())
+    }
+
+    /// Consumes packets from an Iterator, moving them into `self`.
+    ///
+    /// This method is used to add packets from an iterator to the `packets` array. It iterates over the packets provided by the iterator,
+    /// and for each packet, it checks if there is space available in the `packets` array. If there is space available, it finds the first empty slot
+    /// in the `packets` array and inserts the new packet there, incrementing the `packet_number` counter. If the `packets` array is full,
+    /// it returns an `Err` with `ERROR_BUFFER_OVERFLOW`.
+    ///
+    /// # Arguments
+    ///
+    /// * `packets`: An iterator that yields mutable references to `IntermediateBuffer` instances.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(())` if all packets from the iterator were successfully added.
+    /// * `Err(ERROR_BUFFER_OVERFLOW.into())` if the `packets` array is full.
+    pub fn append<I>(&mut self, packets: I) -> Result<()>
+    where
+        I: Iterator<Item = &'a mut IntermediateBuffer>,
+    {
+        for buffer in packets {
+            if self.packet_number as usize >= N {
+                return Err(ERROR_BUFFER_OVERFLOW.into());
+            }
+
+            if let Some(empty_slot) = self.first_empty_packet() {
+                self.set_packet(empty_slot, buffer)?;
+                self.packet_number += 1;
+            } else {
+                return Err(ERROR_BUFFER_OVERFLOW.into());
+            }
+        }
+
+        Ok(())
+    }
+}
+
 /// Provides methods for manipulating the `EthPacket` instances within an `EthMRequest`.
 impl<'a, const N: usize> EthMRequest<'a, N> {
     /// Creates a new `EthMRequest` with the specified adapter handle.
@@ -310,7 +676,7 @@ impl<'a, const N: usize> EthMRequest<'a, N> {
         }
     }
 
-    /// Creates a new `EthMRequest` from an iterator over `&mut IntermediateBuffer`.
+    /// Creates a new `EthMRequest` from an iterator over `&IntermediateBuffer`.
     ///
     /// This constructor will attempt to consume up to `N` items from the iterator to initialize the `packets` array.
     /// If the iterator contains fewer than `N` items, the remaining entries in the `packets` array will be left as `None`.
@@ -318,14 +684,14 @@ impl<'a, const N: usize> EthMRequest<'a, N> {
     /// # Arguments
     ///
     /// * `adapter_handle`: A handle to the network adapter associated with this request.
-    /// * `iter`: An iterator over mutable references to `IntermediateBuffer`.
+    /// * `iter`: An iterator over references to `IntermediateBuffer`.
     ///
     /// # Returns
     ///
     /// A new `EthMRequest`.
     pub fn from_iter(
         adapter_handle: HANDLE,
-        iter: impl Iterator<Item = &'a mut IntermediateBuffer>,
+        iter: impl Iterator<Item = &'a IntermediateBuffer>,
     ) -> Self {
         let mut packets = [(); N].map(|_| EthPacket { buffer: None });
         let mut packet_number = 0;
@@ -346,21 +712,15 @@ impl<'a, const N: usize> EthMRequest<'a, N> {
     /// Returns an iterator that yields `Some(IntermediateBuffer)` for each non-empty buffer in `packets`, in order,
     /// up to `packet_success`.
     ///
-    /// # Description
-    ///
-    /// This function, `drain_success`, operates on mutable reference to the current instance of the struct.
-    /// It returns an iterator that goes over each non-empty buffer in `packets`, in their
-    /// original order, but only up to the index specified by `packet_success`. This iterator will
-    /// yield `Some(IntermediateBuffer)` for each of these buffers. These buffers represent packets
-    /// that have been successfully read from the driver.
-    ///
-    /// Once called, this method drains the non-empty buffers from `packets`, up to `packet_success` making them empty (`None`).
+    /// This method is used to drain the successful packets from the request. It iterates over the packets in the request,
+    /// and for each packet that has a buffer (i.e., is not empty), it decreases the packet number and removes the buffer from the packet.
+    /// The removed buffer (which is a mutable reference to an `IntermediateBuffer`) is then yielded by the iterator.
+    /// This process continues until either all packets have been inspected or a number of packets equal to `packet_success` have been drained.
     ///
     /// # Returns
     ///
-    /// This function returns an implementation of Iterator trait. The iterator item type is a mutable reference
-    /// to an `IntermediateBuffer` (`&'a mut IntermediateBuffer`). This iterator can be used to iterate over the drained buffers.
-    pub fn drain_success(&mut self) -> impl Iterator<Item = &'a mut IntermediateBuffer> + '_ {
+    /// An iterator over `Option<&'a IntermediateBuffer>`. Each `Some(IntermediateBuffer)` item in the iterator represents a successfully processed packet.
+    pub fn drain_success(&mut self) -> impl Iterator<Item = &'a IntermediateBuffer> + '_ {
         self.packets
             .iter_mut()
             .take(self.packet_success as usize)
@@ -376,19 +736,14 @@ impl<'a, const N: usize> EthMRequest<'a, N> {
 
     /// Returns an iterator that yields `Some(IntermediateBuffer)` for each non-empty buffer in `packets`.
     ///
-    /// # Description
-    ///
-    /// This function, `drain`, operates on mutable reference to the current instance of the struct.
-    /// It returns an iterator which yields mutable references to `IntermediateBuffer` for each non-empty buffer in `packets`,
-    /// and it yields them in the order they occur in `packets`.
-    ///
-    /// Once called, this method drains the non-empty buffers from `packets`, making them empty (`None`).
+    /// This method is used to drain the packets from the request. It iterates over the packets in the request,
+    /// and for each packet that has a buffer (i.e., is not empty), it decreases the packet number and removes the buffer from the packet.
+    /// The removed buffer (which is a mutable reference to an `IntermediateBuffer`) is then yielded by the iterator.
     ///
     /// # Returns
     ///
-    /// This function returns an implementation of Iterator trait. The iterator item type is a mutable reference
-    /// to an `IntermediateBuffer` (`&'a mut IntermediateBuffer`). This iterator can be used to iterate over the drained buffers.
-    pub fn drain(&mut self) -> impl Iterator<Item = &'a mut IntermediateBuffer> + '_ {
+    /// An iterator over `Option<&'a IntermediateBuffer>`. Each `Some(IntermediateBuffer)` item in the iterator represents a packet.
+    pub fn drain(&mut self) -> impl Iterator<Item = &'a IntermediateBuffer> + '_ {
         self.packets.iter_mut().filter_map(|packet| {
             if packet.buffer.is_some() {
                 self.packet_number -= 1;
@@ -401,8 +756,20 @@ impl<'a, const N: usize> EthMRequest<'a, N> {
 
     /// Sets the `IntermediateBuffer` for the `EthPacket` at the specified index.
     ///
-    /// This method allows you to associate a new buffer with the `EthPacket` at the given index.
-    fn set_packet(&mut self, index: usize, buffer: &'a mut IntermediateBuffer) -> Result<()> {
+    /// This method is used to associate a reference to an `IntermediateBuffer` with an `EthPacket` at a specific index in the `packets` array.
+    /// If the index is valid (i.e., less than `N`), the method sets the `buffer` field of the `EthPacket` at the specified index to `Some(buffer)`,
+    /// where `buffer` is a reference to an `IntermediateBuffer`.
+    ///
+    /// # Arguments
+    ///
+    /// * `index`: A `usize` representing the index at which to set the `IntermediateBuffer`.
+    /// * `buffer`: A reference to an `IntermediateBuffer` to be associated with the `EthPacket`.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(())` if the index is valid and the `IntermediateBuffer` has been successfully set.
+    /// * `Err(ERROR_INVALID_PARAMETER.into())` if the index is not valid.
+    fn set_packet(&mut self, index: usize, buffer: &'a IntermediateBuffer) -> Result<()> {
         if index < N {
             self.packets[index].buffer = Some(buffer);
             Ok(())
@@ -413,14 +780,20 @@ impl<'a, const N: usize> EthMRequest<'a, N> {
 
     /// Returns the number of packets in the `packets` array.
     ///
-    /// This provides a count of all packets, regardless of whether they've been successfully processed.
+    /// This method is used to get the total number of packets currently stored in the `packets` array.
+    /// The `packets` array is used to store the packets that are to be sent or received.
+    ///
+    /// # Returns
+    /// A `u32` value representing the total number of packets in the `packets` array.
     pub fn get_packet_number(&self) -> u32 {
         self.packet_number
     }
 
-    /// Erases all `EthPacket` instances within the `packets` array and releases all references.
+    /// Erases all `EthPacketMut` instances within the `packets` array and releases all references.
     ///
-    /// After this method is called, all `EthPacket` instances within the `packets` array will be empty (i.e., their `buffer` fields will be `None`), and the packet number will be reset to 0.
+    /// This method is used to reset the state of the `EthMRequest` instance. It iterates over the `packets` array,
+    /// setting each `buffer` field to `None`, effectively releasing all references to `IntermediateBuffer` instances.
+    /// It also resets the `packet_number` and `packet_success` counters to 0.
     pub fn reset(&mut self) {
         for packet in self.packets.iter_mut() {
             packet.buffer = None;
@@ -429,29 +802,33 @@ impl<'a, const N: usize> EthMRequest<'a, N> {
         self.packet_success = 0;
     }
 
-    /// Returns the number of successfully processed packets
+    /// Returns the number of successfully processed packets.
+    ///
+    /// This method is used to get the total number of packets that have been successfully processed.
+    /// The `packet_success` field is incremented each time a packet is successfully processed.
+    ///
+    /// # Returns
+    /// A `u32` value representing the total number of successfully processed packets.
     pub fn get_packet_success(&self) -> u32 {
         self.packet_success
     }
 
     /// Adds an `IntermediateBuffer` to the `packets` array if there's available space.
-    /// This effectively wraps the buffer into an `EthPacket` and stores it in the array.
     ///
-    /// The `packet_number` field of the `EthMRequest` is automatically incremented to reflect the addition of the new packet.
-    ///
-    /// If there is no available space in the array (i.e., if the `packet_number` is equal to the array length `N`), this method returns an error, specifically `ERROR_INVALID_PARAMETER`.
-    ///
-    /// This method provides an idiomatic way of adding new packets to an `EthMRequest` in Rust.
+    /// This method is used to add a new packet to the `packets` array. It first checks if the current number of packets
+    /// is less than the maximum allowed (`N`). If there is space available, it finds the first empty slot in the `packets`
+    /// array and inserts the new packet there, incrementing the `packet_number` counter. If the `packets` array is full,
+    /// it returns an `Err` with `ERROR_BUFFER_OVERFLOW`.
     ///
     /// # Arguments
     ///
-    /// * `packet` - A mutable reference to the `IntermediateBuffer` to be added to the `packets` array.
+    /// * `packet`: A mutable reference to an `IntermediateBuffer` representing the new packet to be added.
     ///
     /// # Returns
     ///
-    /// * `Ok(())` if the buffer was successfully added as a packet.
+    /// * `Ok(())` if the packet was successfully added.
     /// * `Err(ERROR_BUFFER_OVERFLOW.into())` if the `packets` array is full.
-    pub fn push(&mut self, packet: &'a mut IntermediateBuffer) -> Result<()> {
+    pub fn push(&mut self, packet: &'a IntermediateBuffer) -> Result<()> {
         if (self.packet_number as usize) < N {
             if let Some(index) = self.first_empty_packet() {
                 self.packets[index] = EthPacket {
@@ -467,11 +844,15 @@ impl<'a, const N: usize> EthMRequest<'a, N> {
         }
     }
 
-    /// Returns the index of the first `EthPacket` which contains `None`.
+    /// Returns the index of the first `EthPacketMut` which contains `None`.
+    ///
+    /// This method is used to find the first empty slot in the `packets` array. It iterates over the `packets` array,
+    /// and for each `EthPacketMut` that does not have a buffer (i.e., its `buffer` field is `None`), it returns the index of that packet.
+    /// If all `EthPacketMut` instances in the `packets` array have a buffer, this method returns `None`.
     ///
     /// # Returns
-    /// * An `Option<usize>` representing the index of the first empty `EthPacket`.
-    /// If no empty `EthPacket` is found, returns `None`.
+    /// An `Option<usize>` that is `Some(index)` if an empty `EthPacketMut` is found, where `index` is the index of the empty packet.
+    /// If no empty `EthPacketMut` is found, it returns `None`.
     fn first_empty_packet(&self) -> Option<usize> {
         self.packets
             .iter()
@@ -480,14 +861,22 @@ impl<'a, const N: usize> EthMRequest<'a, N> {
 
     /// Consumes packets from an Iterator, moving them into `self`.
     ///
+    /// This method is used to add packets from an iterator to the `packets` array. It iterates over the packets provided by the iterator,
+    /// and for each packet, it checks if there is space available in the `packets` array. If there is space available, it finds the first empty slot
+    /// in the `packets` array and inserts the new packet there, incrementing the `packet_number` counter. If the `packets` array is full,
+    /// it returns an `Err` with `ERROR_BUFFER_OVERFLOW`.
+    ///
     /// # Arguments
-    /// * `packets` - An iterator yielding mutable references to IntermediateBuffer.
+    ///
+    /// * `packets`: An iterator that yields mutable references to `IntermediateBuffer` instances.
     ///
     /// # Returns
-    /// * Result indicating success or failure.
+    ///
+    /// * `Ok(())` if all packets from the iterator were successfully added.
+    /// * `Err(ERROR_BUFFER_OVERFLOW.into())` if the `packets` array is full.
     pub fn append<I>(&mut self, packets: I) -> Result<()>
     where
-        I: Iterator<Item = &'a mut IntermediateBuffer>,
+        I: Iterator<Item = &'a IntermediateBuffer>,
     {
         for buffer in packets {
             if self.packet_number as usize >= N {

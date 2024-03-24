@@ -41,6 +41,35 @@ pub struct Eth8023Filter {
     pub padding: u16,
 }
 
+/// Creates a new `Eth8023Filter` instance.
+///
+/// # Arguments
+///
+/// * `valid_fields` - A bitmask indicating which fields in the filter are valid.
+/// * `src_address` - The source address to filter on.
+/// * `dest_address` - The destination address to filter on.
+/// * `protocol` - The protocol (Ethertype) to filter on.
+///
+/// # Returns
+///
+/// * A new `Eth8023Filter` instance.
+impl Eth8023Filter {
+    pub fn new(
+        valid_fields: Eth802_3FilterFlags,
+        src_address: [u8; ETHER_ADDR_LENGTH],
+        dest_address: [u8; ETHER_ADDR_LENGTH],
+        protocol: u16,
+    ) -> Self {
+        Self {
+            valid_fields,
+            src_address,
+            dest_address,
+            protocol,
+            padding: 0, // padding is usually set to 0
+        }
+    }
+}
+
 impl Default for Eth8023Filter {
     /// Returns a zero-initialized instance of `Eth8023Filter`.
     ///
@@ -65,6 +94,22 @@ pub struct IpSubnetV4 {
     pub ip_mask: IN_ADDR,
 }
 
+/// Creates a new `IpSubnetV4` instance.
+///
+/// # Arguments
+///
+/// * `ip` - The IPv4 address.
+/// * `ip_mask` - The subnet mask.
+///
+/// # Returns
+///
+/// * A new `IpSubnetV4` instance.
+impl IpSubnetV4 {
+    pub fn new(ip: IN_ADDR, ip_mask: IN_ADDR) -> Self {
+        Self { ip, ip_mask }
+    }
+}
+
 /// This structure is used to represent an IPv4 address range based on a start and end IP address.
 ///
 /// A Rust equivalent for the [_IP_RANGE_V4](https://www.ntkernel.com/docs/windows-packet-filter-documentation/structures/_ip_range_v4/) structure.
@@ -75,6 +120,22 @@ pub struct IpRangeV4 {
     pub start_ip: IN_ADDR,
     /// The end of the IPv4 address range.
     pub end_ip: IN_ADDR,
+}
+
+/// Creates a new `IpRangeV4` instance.
+///
+/// # Arguments
+///
+/// * `start_ip` - The start of the IPv4 address range.
+/// * `end_ip` - The end of the IPv4 address range.
+///
+/// # Returns
+///
+/// * A new `IpRangeV4` instance.
+impl IpRangeV4 {
+    pub fn new(start_ip: IN_ADDR, end_ip: IN_ADDR) -> Self {
+        Self { start_ip, end_ip }
+    }
 }
 
 /// A Rust union representing either an IPv4 subnet (IpSubnetV4) or an IPv4 address range (IpRangeV4).
@@ -109,6 +170,25 @@ pub struct IpAddressV4 {
     pub address: IpAddressV4Union,
 }
 
+/// Creates a new `IpAddressV4` instance.
+///
+/// # Arguments
+///
+/// * `address_type` - Indicates whether the address is a subnet or a range.
+/// * `address` - Contains the actual IPv4 address information in a union format.
+///
+/// # Returns
+///
+/// * A new `IpAddressV4` instance.
+impl IpAddressV4 {
+    pub fn new(address_type: u32, address: IpAddressV4Union) -> Self {
+        Self {
+            address_type,
+            address,
+        }
+    }
+}
+
 /// Represents an IPv4 filter used by the packet filtering mechanism.
 ///
 /// A Rust equivalent for [_IP_V4_FILTER](https://www.ntkernel.com/docs/windows-packet-filter-documentation/structures/_ip_v4_filter/).
@@ -128,6 +208,35 @@ pub struct IpV4Filter {
     pub padding: [u8; 3usize],
 }
 
+/// Creates a new `IpV4Filter` instance.
+///
+/// # Arguments
+///
+/// * `valid_fields` - Specifies which fields in the filter structure are used for filtering.
+/// * `src_address` - Contains the source IPv4 address information.
+/// * `dest_address` - Contains the destination IPv4 address information.
+/// * `protocol` - Represents the IP protocol number.
+///
+/// # Returns
+///
+/// * A new `IpV4Filter` instance.
+impl IpV4Filter {
+    pub fn new(
+        valid_fields: IpV4FilterFlags,
+        src_address: IpAddressV4,
+        dest_address: IpAddressV4,
+        protocol: u8,
+    ) -> Self {
+        Self {
+            valid_fields,
+            src_address,
+            dest_address,
+            protocol,
+            padding: [0; 3], // padding is usually set to 0
+        }
+    }
+}
+
 /// Represents an IPv6 subnet used by the packet filtering mechanism.
 ///
 /// A Rust equivalent for [_IP_SUBNET_V6](https://www.ntkernel.com/docs/windows-packet-filter-documentation/structures/_ip_subnet_v6/).
@@ -141,6 +250,22 @@ pub struct IpSubnetV6 {
     pub ip_mask: IN6_ADDR,
 }
 
+/// Creates a new `IpSubnetV6` instance.
+///
+/// # Arguments
+///
+/// * `ip` - The IPv6 address.
+/// * `ip_mask` - The subnet mask.
+///
+/// # Returns
+///
+/// * A new `IpSubnetV6` instance.
+impl IpSubnetV6 {
+    pub fn new(ip: IN6_ADDR, ip_mask: IN6_ADDR) -> Self {
+        Self { ip, ip_mask }
+    }
+}
+
 /// Represents an IPv6 address range used by the packet filtering mechanism.
 ///
 /// A Rust equivalent for [_IP_RANGE_V6](https://www.ntkernel.com/docs/windows-packet-filter-documentation/structures/_ip_range_v6/).
@@ -152,6 +277,22 @@ pub struct IpSubnetV6 {
 pub struct IpRangeV6 {
     pub start_ip: IN6_ADDR,
     pub end_ip: IN6_ADDR,
+}
+
+/// Creates a new `IpRangeV6` instance.
+///
+/// # Arguments
+///
+/// * `start_ip` - The start of the IPv6 address range.
+/// * `end_ip` - The end of the IPv6 address range.
+///
+/// # Returns
+///
+/// * A new `IpRangeV6` instance.
+impl IpRangeV6 {
+    pub fn new(start_ip: IN6_ADDR, end_ip: IN6_ADDR) -> Self {
+        Self { start_ip, end_ip }
+    }
 }
 
 /// This structure is used to store information about a particular address space
@@ -190,6 +331,25 @@ pub struct IpAddressV6 {
     pub address: IpAddressV6Union,
 }
 
+/// Creates a new `IpAddressV6` instance.
+///
+/// # Arguments
+///
+/// * `address_type` - Indicates whether the address is a subnet or a range.
+/// * `address` - Contains the specific IPv6 address data, either a subnet or an address range, depending on the `address_type`.
+///
+/// # Returns
+///
+/// * A new `IpAddressV6` instance.
+impl IpAddressV6 {
+    pub fn new(address_type: u32, address: IpAddressV6Union) -> Self {
+        Self {
+            address_type,
+            address,
+        }
+    }
+}
+
 /// This structure is used to define packet filtering rules for IPv6 packets.
 ///
 /// Rust equivalent for [_IP_V6_FILTER](https://www.ntkernel.com/docs/windows-packet-filter-documentation/structures/_ip_v6_filter/).
@@ -208,6 +368,35 @@ pub struct IpV6Filter {
     pub padding: [u8; 3usize],
 }
 
+/// Creates a new `IpV6Filter` instance.
+///
+/// # Arguments
+///
+/// * `valid_fields` - Specifies which fields in the filter structure are used for filtering.
+/// * `src_address` - Contains the source IPv6 address information.
+/// * `dest_address` - Contains the destination IPv6 address information.
+/// * `protocol` - Represents the IP protocol number.
+///
+/// # Returns
+///
+/// * A new `IpV6Filter` instance.
+impl IpV6Filter {
+    pub fn new(
+        valid_fields: IpV6FilterFlags,
+        src_address: IpAddressV6,
+        dest_address: IpAddressV6,
+        protocol: u8,
+    ) -> Self {
+        Self {
+            valid_fields,
+            src_address,
+            dest_address,
+            protocol,
+            padding: [0; 3], // padding is usually set to 0
+        }
+    }
+}
+
 /// This structure is used to define a range of port numbers for packet filtering rules.
 ///
 /// Rust equivalent for [_PORT_RANGE](https://www.ntkernel.com/docs/windows-packet-filter-documentation/structures/_port_range/).
@@ -219,6 +408,25 @@ pub struct IpV6Filter {
 pub struct PortRange {
     pub start_range: u16,
     pub end_range: u16,
+}
+
+/// Creates a new `PortRange` instance.
+///
+/// # Arguments
+///
+/// * `start_range` - The start of the port range.
+/// * `end_range` - The end of the port range.
+///
+/// # Returns
+///
+/// * A new `PortRange` instance.
+impl PortRange {
+    pub fn new(start_range: u16, end_range: u16) -> Self {
+        Self {
+            start_range,
+            end_range,
+        }
+    }
 }
 
 /// This structure is used to define filtering rules for TCP and UDP packets.
@@ -240,6 +448,35 @@ pub struct TcpUdpFilter {
     pub padding: [u8; 3usize],
 }
 
+/// Creates a new `TcpUdpFilter` instance.
+///
+/// # Arguments
+///
+/// * `valid_fields` - Specifies which fields in the filter structure are valid for filtering.
+/// * `source_port` - Represents the range of source port numbers to filter.
+/// * `dest_port` - Represents the range of destination port numbers to filter.
+/// * `tcp_flags` - Used to filter TCP packets based on their flags.
+///
+/// # Returns
+///
+/// * A new `TcpUdpFilter` instance.
+impl TcpUdpFilter {
+    pub fn new(
+        valid_fields: TcpUdpFilterFlags,
+        source_port: PortRange,
+        dest_port: PortRange,
+        tcp_flags: u8,
+    ) -> Self {
+        Self {
+            valid_fields,
+            source_port,
+            dest_port,
+            tcp_flags,
+            padding: [0; 3], // padding is usually set to 0
+        }
+    }
+}
+
 /// A Rust struct that represents a range of byte values.
 ///
 /// Rust equivalent for _BYTE_RANGE. This structure can be used to define
@@ -252,6 +489,25 @@ pub struct TcpUdpFilter {
 pub struct ByteRange {
     pub start_range: u8,
     pub end_range: u8,
+}
+
+/// Creates a new `ByteRange` instance.
+///
+/// # Arguments
+///
+/// * `start_range` - The start of the byte range.
+/// * `end_range` - The end of the byte range.
+///
+/// # Returns
+///
+/// * A new `ByteRange` instance.
+impl ByteRange {
+    pub fn new(start_range: u8, end_range: u8) -> Self {
+        Self {
+            start_range,
+            end_range,
+        }
+    }
 }
 
 /// A Rust struct that represents an ICMP filter.
@@ -268,6 +524,31 @@ pub struct IcmpFilter {
     pub valid_fields: IcmpFilterFlags,
     pub type_range: ByteRange,
     pub code_range: ByteRange,
+}
+
+/// Creates a new `IcmpFilter` instance.
+///
+/// # Arguments
+///
+/// * `valid_fields` - Specifies which fields in the filter are valid for filtering.
+/// * `type_range` - Represents a range of ICMP types for filtering.
+/// * `code_range` - Represents a range of ICMP codes for filtering.
+///
+/// # Returns
+///
+/// * A new `IcmpFilter` instance.
+impl IcmpFilter {
+    pub fn new(
+        valid_fields: IcmpFilterFlags,
+        type_range: ByteRange,
+        code_range: ByteRange,
+    ) -> Self {
+        Self {
+            valid_fields,
+            type_range,
+            code_range,
+        }
+    }
 }
 
 /// A Rust union that holds an `Eth8023Filter`.
@@ -297,6 +578,25 @@ impl Default for DataLinkLayerFilterUnion {
 pub struct DataLinkLayerFilter {
     pub union_selector: u32, // ETH_802_3 for Eth8023Filter
     pub data_link_layer: DataLinkLayerFilterUnion,
+}
+
+/// Creates a new `DataLinkLayerFilter` instance.
+///
+/// # Arguments
+///
+/// * `union_selector` - Specifies the filter type (e.g., ETH_802_3 for Eth8023Filter).
+/// * `data_link_layer` - Contains the actual data link layer filter information in a union format.
+///
+/// # Returns
+///
+/// * A new `DataLinkLayerFilter` instance.
+impl DataLinkLayerFilter {
+    pub fn new(union_selector: u32, data_link_layer: DataLinkLayerFilterUnion) -> Self {
+        Self {
+            union_selector,
+            data_link_layer,
+        }
+    }
 }
 
 /// A Rust union that holds either an `IpV4Filter` or an `IpV6Filter`.
@@ -330,6 +630,25 @@ pub struct NetworkLayerFilter {
     /// network_layer: A union that holds either an IpV4Filter or an IpV6Filter,
     /// depending on the value of the union_selector field.
     pub network_layer: NetworkLayerFilterUnion,
+}
+
+/// Creates a new `NetworkLayerFilter` instance.
+///
+/// # Arguments
+///
+/// * `union_selector` - A field that determines the type of the network layer filter.
+/// * `network_layer` - A union that holds either an IpV4Filter or an IpV6Filter.
+///
+/// # Returns
+///
+/// * A new `NetworkLayerFilter` instance.
+impl NetworkLayerFilter {
+    pub fn new(union_selector: u32, network_layer: NetworkLayerFilterUnion) -> Self {
+        Self {
+            union_selector,
+            network_layer,
+        }
+    }
 }
 
 /// A Rust union that represents a transport layer filter.
@@ -366,6 +685,25 @@ pub struct TransportLayerFilter {
     pub transport_layer: TransportLayerFilterUnion,
 }
 
+/// Creates a new `TransportLayerFilter` instance.
+///
+/// # Arguments
+///
+/// * `union_selector` - A u32 flag that selects the appropriate filter. Use TCPUDP for TcpUdpFilter and ICMP for IcmpFilter.
+/// * `transport_layer` - A TransportLayerFilterUnion that holds either a `TcpUdpFilter` or an `IcmpFilter`.
+///
+/// # Returns
+///
+/// * A new `TransportLayerFilter` instance.
+impl TransportLayerFilter {
+    pub fn new(union_selector: u32, transport_layer: TransportLayerFilterUnion) -> Self {
+        Self {
+            union_selector,
+            transport_layer,
+        }
+    }
+}
+
 /// This structure is used to define a single static filter rule for packet filtering. Each rule can specify filtering criteria at
 /// the data link, network, and transport layers. The structure also includes counters for incoming and outgoing packets and bytes
 /// that match the filter rule.
@@ -400,6 +738,48 @@ pub struct StaticFilter {
     pub transport_filter: TransportLayerFilter,
 }
 
+/// Creates a new `StaticFilter` instance.
+///
+/// # Arguments
+///
+/// * `adapter_handle` - Adapter handle extended to 64 bit size for structure compatibility across x64 and x86 architectures.
+/// * `direction_flags` - PACKET_FLAG_ON_SEND or/and PACKET_FLAG_ON_RECEIVE to specify the direction of packets to match.
+/// * `filter_action` - FILTER_PACKET_XXX to define the action to take when a packet matches the filter.
+/// * `valid_fields` - Specifies which of the fields below contain valid values and should be matched against the packet.
+/// * `data_link_filter` - Filter criteria for the data link layer (e.g., Ethernet).
+/// * `network_filter` - Filter criteria for the network layer (e.g., IPv4, IPv6).
+/// * `transport_filter` - Filter criteria for the transport layer (e.g., TCP, UDP, ICMP).
+///
+/// # Returns
+///
+/// * A new `StaticFilter` instance.
+impl StaticFilter {
+    pub fn new(
+        adapter_handle: u64,
+        direction_flags: DirectionFlags,
+        filter_action: u32,
+        valid_fields: FilterLayerFlags,
+        data_link_filter: DataLinkLayerFilter,
+        network_filter: NetworkLayerFilter,
+        transport_filter: TransportLayerFilter,
+    ) -> Self {
+        Self {
+            adapter_handle,
+            direction_flags,
+            filter_action,
+            valid_fields,
+            last_reset: 0,  // last_reset is usually set to 0
+            packets_in: 0,  // packets_in is usually set to 0
+            bytes_in: 0,    // bytes_in is usually set to 0
+            packets_out: 0, // packets_out is usually set to 0
+            bytes_out: 0,   // bytes_out is usually set to 0
+            data_link_filter,
+            network_filter,
+            transport_filter,
+        }
+    }
+}
+
 /// This structure represents an array of static filter rules, each of which is defined by a `StaticFilter` structure.
 /// It is used to manage multiple filter rules for packet filtering in a table format.
 ///
@@ -422,6 +802,15 @@ impl<const N: usize> StaticFilterTable<N> {
             table_size: N as u32,
             padding: 0u32,
             static_filters: [StaticFilter::default(); N],
+        }
+    }
+
+    /// Creates a new `StaticFilterTable` with the specified static filters.
+    pub fn from_filters(static_filters: [StaticFilter; N]) -> Self {
+        Self {
+            table_size: N as u32,
+            padding: 0u32,
+            static_filters,
         }
     }
 }

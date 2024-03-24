@@ -5,7 +5,9 @@
 /// a real-time visualization of network traffic. This example resembles the `passthru` utility but employs bulk
 /// packet sending and receiving to optimize performance.
 use clap::Parser;
-use ndisapi::{DirectionFlags, EthMRequest, FilterFlags, IntermediateBuffer, Ndisapi};
+use ndisapi::{
+    DirectionFlags, EthMRequest, EthMRequestMut, FilterFlags, IntermediateBuffer, Ndisapi,
+};
 use smoltcp::wire::{
     ArpPacket, EthernetFrame, EthernetProtocol, Icmpv4Packet, Icmpv6Packet, IpProtocol, Ipv4Packet,
     Ipv6Packet, TcpPacket, UdpPacket,
@@ -27,6 +29,9 @@ struct Cli {
     /// Number of packets to read from the specified network interface
     #[clap(short, long)]
     packets_number: usize,
+    /// Enable verbose output
+    #[clap(short, long, default_value = "false")]
+    verbose: bool,
 }
 
 const PACKET_NUMBER: usize = 256;
@@ -36,6 +41,7 @@ fn main() -> Result<()> {
     let Cli {
         mut interface_index,
         mut packets_number,
+        verbose,
     } = Cli::parse();
 
     // Decrement the interface index since it's zero-based.
@@ -79,15 +85,7 @@ fn main() -> Result<()> {
     )?;
 
     // Initialize a container to store IntermediateBuffers allocated on the heap.
-    let mut ibs: Vec<IntermediateBuffer> = vec![Default::default(); PACKET_NUMBER];
-
-    // Initialize containers to read/write IntermediateBuffers from/to the driver.
-    let mut to_read =
-        EthMRequest::from_iter(adapters[interface_index].get_handle(), ibs.iter_mut());
-    let mut to_mstcp: EthMRequest<PACKET_NUMBER> =
-        EthMRequest::new(adapters[interface_index].get_handle());
-    let mut to_adapter: EthMRequest<PACKET_NUMBER> =
-        EthMRequest::new(adapters[interface_index].get_handle());
+    let mut packets: Vec<IntermediateBuffer> = vec![Default::default(); PACKET_NUMBER];
 
     // Main loop: Process packets until the specified number of packets is reached.
     while packets_number > 0 {
@@ -98,41 +96,61 @@ fn main() -> Result<()> {
 
         // Read packets from the driver.
         let mut packets_read: usize;
-        while {
+        loop {
+            // Create a mutable EthMRequest from the iterator of packets.
+            let mut to_read = EthMRequestMut::from_iter(
+                adapters[interface_index].get_handle(),
+                packets.iter_mut(),
+            );
+
+            // Read packets from the driver. If no packets are read, break the loop.
             packets_read = driver
                 .read_packets::<PACKET_NUMBER>(&mut to_read)
                 .unwrap_or(0usize);
-            packets_read > 0
-        } {
+
+            if packets_read == 0 {
+                break;
+            }
+
+            // Create EthMRequest for MSTCP and adapter with the handle of the selected interface.
+            let mut to_mstcp: EthMRequest<PACKET_NUMBER> =
+                EthMRequest::new(adapters[interface_index].get_handle());
+            let mut to_adapter: EthMRequest<PACKET_NUMBER> =
+                EthMRequest::new(adapters[interface_index].get_handle());
+
             // Decrement the packets counter.
             packets_number = packets_number.saturating_sub(packets_read);
 
             // Process each packet.
-            for (i, packet) in to_read.drain_success().enumerate() {
-                let direction_flags = packet.get_device_flags();
+            for i in 0..packets_read {
+                let direction_flags = packets[i].get_device_flags();
 
-                // Print packet direction and remaining packets.
-                if direction_flags == DirectionFlags::PACKET_FLAG_ON_SEND {
-                    println!(
-                        "\nMSTCP --> Interface ({} bytes) remaining packets {}\n",
-                        packet.get_length(),
-                        packets_number + (packets_read - i)
-                    );
-                } else {
-                    println!(
-                        "\nInterface --> MSTCP ({} bytes) remaining packets {}\n",
-                        packet.get_length(),
-                        packets_number + (packets_read - i)
-                    );
+                if verbose {
+                    // Print packet direction and remaining packets.
+                    if direction_flags == DirectionFlags::PACKET_FLAG_ON_SEND {
+                        println!(
+                            "\nMSTCP --> Interface ({} bytes) remaining packets {}\n",
+                            packets[i].get_length(),
+                            packets_number + (packets_read - i)
+                        );
+                    } else {
+                        println!(
+                            "\nInterface --> MSTCP ({} bytes) remaining packets {}\n",
+                            packets[i].get_length(),
+                            packets_number + (packets_read - i)
+                        );
+                    }
                 }
 
-                // Print packet information
-                print_packet_info(packet);
+                if verbose {
+                    // Print packet information
+                    print_packet_info(&packets[i]);
+                }
 
                 if direction_flags == DirectionFlags::PACKET_FLAG_ON_SEND {
-                    to_adapter.push(packet)?;
+                    to_adapter.push(&packets[i])?;
                 } else {
-                    to_mstcp.push(packet)?;
+                    to_mstcp.push(&packets[i])?;
                 }
             }
 
@@ -149,11 +167,6 @@ fn main() -> Result<()> {
                     Ok(_) => {}
                     Err(err) => println!("Error sending packet to mstcp. Error code = {err}"),
                 };
-            }
-
-            match to_read.append(to_mstcp.drain().chain(to_adapter.drain())) {
-                Ok(_) => {}
-                Err(err) => println!("Error consuming processed packets. Error code = {err}"),
             }
 
             if packets_number == 0 {
@@ -187,19 +200,19 @@ fn main() -> Result<()> {
 ///
 /// # Arguments
 ///
-/// * `packet` - A mutable reference to an `IntermediateBuffer` containing the network packet.
+/// * `packet` - A reference to an `IntermediateBuffer` containing the network packet.
 ///
 /// # Examples
 ///
 /// ```no_run
-/// let mut packet: IntermediateBuffer = ...;
-/// print_packet_info(&mut packet);
+/// let packet: IntermediateBuffer = ...;
+/// print_packet_info(&packet);
 /// ```
-fn print_packet_info(packet: &mut IntermediateBuffer) {
-    let mut eth_hdr = EthernetFrame::new_unchecked(packet.get_data_mut());
+fn print_packet_info(packet: &IntermediateBuffer) {
+    let eth_hdr = EthernetFrame::new_unchecked(packet.get_data());
     match eth_hdr.ethertype() {
         EthernetProtocol::Ipv4 => {
-            let mut ipv4_packet = Ipv4Packet::new_unchecked(eth_hdr.payload_mut());
+            let ipv4_packet = Ipv4Packet::new_unchecked(eth_hdr.payload());
             println!(
                 "  Ipv4 {:?} => {:?}",
                 ipv4_packet.src_addr(),
@@ -207,7 +220,7 @@ fn print_packet_info(packet: &mut IntermediateBuffer) {
             );
             match ipv4_packet.next_header() {
                 IpProtocol::Icmp => {
-                    let icmp_packet = Icmpv4Packet::new_unchecked(ipv4_packet.payload_mut());
+                    let icmp_packet = Icmpv4Packet::new_unchecked(ipv4_packet.payload());
                     println!(
                         "ICMPv4: Type: {:?} Code: {:?}",
                         icmp_packet.msg_type(),
@@ -215,7 +228,7 @@ fn print_packet_info(packet: &mut IntermediateBuffer) {
                     );
                 }
                 IpProtocol::Tcp => {
-                    let tcp_packet = TcpPacket::new_unchecked(ipv4_packet.payload_mut());
+                    let tcp_packet = TcpPacket::new_unchecked(ipv4_packet.payload());
                     println!(
                         "   TCP {:?} -> {:?}",
                         tcp_packet.src_port(),
@@ -223,7 +236,7 @@ fn print_packet_info(packet: &mut IntermediateBuffer) {
                     );
                 }
                 IpProtocol::Udp => {
-                    let udp_packet = UdpPacket::new_unchecked(ipv4_packet.payload_mut());
+                    let udp_packet = UdpPacket::new_unchecked(ipv4_packet.payload());
                     println!(
                         "   UDP {:?} -> {:?}",
                         udp_packet.src_port(),
@@ -236,7 +249,7 @@ fn print_packet_info(packet: &mut IntermediateBuffer) {
             }
         }
         EthernetProtocol::Ipv6 => {
-            let mut ipv6_packet = Ipv6Packet::new_unchecked(eth_hdr.payload_mut());
+            let ipv6_packet = Ipv6Packet::new_unchecked(eth_hdr.payload());
             println!(
                 "  Ipv6 {:?} => {:?}",
                 ipv6_packet.src_addr(),
@@ -244,7 +257,7 @@ fn print_packet_info(packet: &mut IntermediateBuffer) {
             );
             match ipv6_packet.next_header() {
                 IpProtocol::Icmpv6 => {
-                    let icmpv6_packet = Icmpv6Packet::new_unchecked(ipv6_packet.payload_mut());
+                    let icmpv6_packet = Icmpv6Packet::new_unchecked(ipv6_packet.payload());
                     println!(
                         "ICMPv6 packet: Type: {:?} Code: {:?}",
                         icmpv6_packet.msg_type(),
@@ -252,7 +265,7 @@ fn print_packet_info(packet: &mut IntermediateBuffer) {
                     );
                 }
                 IpProtocol::Tcp => {
-                    let tcp_packet = TcpPacket::new_unchecked(ipv6_packet.payload_mut());
+                    let tcp_packet = TcpPacket::new_unchecked(ipv6_packet.payload());
                     println!(
                         "   TCP {:?} -> {:?}",
                         tcp_packet.src_port(),
@@ -260,7 +273,7 @@ fn print_packet_info(packet: &mut IntermediateBuffer) {
                     );
                 }
                 IpProtocol::Udp => {
-                    let udp_packet = UdpPacket::new_unchecked(ipv6_packet.payload_mut());
+                    let udp_packet = UdpPacket::new_unchecked(ipv6_packet.payload());
                     println!(
                         "   UDP {:?} -> {:?}",
                         udp_packet.src_port(),
@@ -273,7 +286,7 @@ fn print_packet_info(packet: &mut IntermediateBuffer) {
             }
         }
         EthernetProtocol::Arp => {
-            let arp_packet = ArpPacket::new_unchecked(eth_hdr.payload_mut());
+            let arp_packet = ArpPacket::new_unchecked(eth_hdr.payload());
             println!("ARP packet: {:?}", arp_packet);
         }
         EthernetProtocol::Unknown(_) => {

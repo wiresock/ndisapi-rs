@@ -1,11 +1,13 @@
-/// This example demonstrates the essential usage of active filtering modes for packet processing. It selects a
-/// network interface and sets it into a filtering mode, where both sent and received packets are queued. The example
-/// registers a Win32 event using the `Ndisapi::set_packet_event` function, and enters a waiting state for incoming packets.
-/// Upon receiving a packet, its content is decoded and displayed on the console screen, providing a real-time view of
-/// the network traffic.
+/// This example demonstrates the fundamental usage of active filtering modes in packet processing. By selecting a
+/// network interface and configuring it to operate in a filtering mode, both sent and received packets are queued.
+/// The example registers a Win32 event through the `set_packet_event` function and enters a waiting state
+/// for incoming packets. As packets are received, their content is decoded and printed on the console screen, offering
+/// a real-time visualization of network traffic. This example resembles the `packthru` utility but employs unsorted
+/// packet sending and receiving API which can be used to read/write packets to multiply adapters.
 use clap::Parser;
 use ndisapi::{
-    DirectionFlags, EthRequest, EthRequestMut, FilterFlags, IntermediateBuffer, Ndisapi,
+    DirectionFlags, FilterFlags, IntermediateBuffer, IntermediateBufferArray,
+    IntermediateBufferArrayMut, Ndisapi,
 };
 use smoltcp::wire::{
     ArpPacket, EthernetFrame, EthernetProtocol, Icmpv4Packet, Icmpv6Packet, IpProtocol, Ipv4Packet,
@@ -13,8 +15,11 @@ use smoltcp::wire::{
 };
 use windows::{
     core::Result,
-    Win32::Foundation::{CloseHandle, HANDLE},
-    Win32::System::Threading::{CreateEventW, ResetEvent, WaitForSingleObject},
+    Win32::Foundation::HANDLE,
+    Win32::{
+        Foundation::CloseHandle,
+        System::Threading::{CreateEventW, ResetEvent, WaitForSingleObject},
+    },
 };
 
 #[derive(Parser)]
@@ -25,118 +30,144 @@ struct Cli {
     /// Number of packets to read from the specified network interface
     #[clap(short, long)]
     packets_number: usize,
+    /// Enable verbose output
+    #[clap(short, long, default_value = "false")]
+    verbose: bool,
 }
 
+const PACKET_NUMBER: usize = 256;
+
 fn main() -> Result<()> {
-    // Parse command line arguments and extract interface index and number of packets
+    // Parse command line arguments.
     let Cli {
         mut interface_index,
         mut packets_number,
+        verbose,
     } = Cli::parse();
 
-    // Subtract 1 from interface index to convert from 1-based to 0-based indexing
+    // Decrement the interface index since it's zero-based.
     interface_index -= 1;
 
-    // Create new NDISAPI object using the WinpkFilter driver
+    // Initialize the NDISAPI driver.
     let driver =
         Ndisapi::new("NDISRD").expect("WinpkFilter driver is not installed or failed to load!");
 
-    // Print the version of Windows Packet Filter detected by the driver API
+    // Print the detected Windows Packet Filter version.
     println!(
         "Detected Windows Packet Filter version {}",
         driver.get_version()?
     );
 
-    // Get information about TCP/IP adapters bound to the driver
+    // Get a list of TCP/IP bound adapters.
     let adapters = driver.get_tcpip_bound_adapters_info()?;
 
-    // If the specified interface index is greater than the number of available interfaces, panic with an error message
+    // Validate the user-specified interface index.
     if interface_index + 1 > adapters.len() {
         panic!("Interface index is beyond the number of available interfaces");
     }
 
-    // Print a message showing the interface name and the number of packets being used.
+    // Print the selected interface and number of packets to process.
     println!(
         "Using interface {} with {} packets",
         adapters[interface_index].get_name(),
         packets_number
     );
 
-    // Create a Win32 event for packet handling.
-    let event: HANDLE;
-    unsafe {
-        event = CreateEventW(None, true, false, None)?; // Creating a Win32 event without a name.
-    }
+    // Create a Win32 event.
+    let event: HANDLE = unsafe { CreateEventW(None, true, false, None)? };
 
-    // Set the created event within the driver to signal completion of packet handling.
+    // Set the event within the driver.
     driver.set_packet_event(adapters[interface_index].get_handle(), event)?;
 
-    // Put the network interface into tunnel mode by setting it's filter flags.
+    // Put the network interface into tunnel mode.
     driver.set_adapter_mode(
         adapters[interface_index].get_handle(),
         FilterFlags::MSTCP_FLAG_SENT_RECEIVE_TUNNEL,
     )?;
 
-    // Allocate single IntermediateBuffer on the stack
-    let mut packet = IntermediateBuffer::default();
+    // Initialize a container to store IntermediateBuffers allocated on the heap.
+    let mut packets: Vec<IntermediateBuffer> = vec![Default::default(); PACKET_NUMBER];
 
-    // Loop through all the packets from the network until we are done.
+    // Main loop: Process packets until the specified number of packets is reached.
     while packets_number > 0 {
+        // Wait for the event to be signaled.
         unsafe {
-            WaitForSingleObject(event, u32::MAX); // Wait for the event to finish before continuing.
+            WaitForSingleObject(event, u32::MAX);
         }
 
+        // Read packets from the driver.
         loop {
-            // Initialize EthPacketMut to pass to driver API
-            let mut read_request = EthRequestMut::new(adapters[interface_index].get_handle());
+            let to_read = IntermediateBufferArrayMut::new(packets.iter_mut());
 
-            read_request.set_packet(&mut packet);
+            // Read packets from the driver. If no packets are read, break the loop.
+            let packets_read = driver
+                .read_packets_unsorted::<PACKET_NUMBER>(&to_read.into())
+                .unwrap_or(0usize);
 
-            if driver.read_packet(&mut read_request).ok().is_none() {
+            if packets_read == 0 {
+                //println!("No packets read\n");
                 break;
             }
 
-            // Store the direction flags
-            let direction_flags = packet.get_device_flags();
+            // Decrement the packets counter.
+            packets_number = packets_number.saturating_sub(packets_read);
 
-            // Print packet information
-            if direction_flags == DirectionFlags::PACKET_FLAG_ON_SEND {
-                println!(
-                    "\nMSTCP --> Interface ({} bytes) remaining packets {}\n",
-                    packet.get_length(),
-                    packets_number
-                );
-            } else {
-                println!(
-                    "\nInterface --> MSTCP ({} bytes) remaining packets {}\n",
-                    packet.get_length(),
-                    packets_number
-                );
-            }
+            if verbose {
+                // Process each packet.
+                for i in 0..packets_read {
+                    let direction_flags = packets[i].get_device_flags();
 
-            // Decrement the number of packets.
-            packets_number -= 1;
+                    // Print packet direction and remaining packets.
+                    if direction_flags == DirectionFlags::PACKET_FLAG_ON_SEND {
+                        println!(
+                            "\nMSTCP --> Interface ({} bytes) remaining packets {}\n",
+                            packets[i].get_length(),
+                            packets_number + (packets_read - i)
+                        );
+                    } else {
+                        println!(
+                            "\nInterface --> MSTCP ({} bytes) remaining packets {}\n",
+                            packets[i].get_length(),
+                            packets_number + (packets_read - i)
+                        );
+                    }
 
-            // Print some information about the sliced packet
-            print_packet_info(&packet);
-
-            let mut write_request = EthRequest::new(adapters[interface_index].get_handle());
-            write_request.set_packet(&packet);
-
-            // Re-inject the packet back into the network stack
-            if direction_flags == DirectionFlags::PACKET_FLAG_ON_SEND {
-                match driver.send_packet_to_adapter(&write_request) {
-                    Ok(_) => {}
-                    Err(err) => println!("Error sending packet to adapter. Error code = {err}"),
-                };
-            } else {
-                match driver.send_packet_to_mstcp(&write_request) {
-                    Ok(_) => {}
-                    Err(err) => println!("Error sending packet to mstcp. Error code = {err}"),
+                    // Print packet information
+                    print_packet_info(&packets[i]);
                 }
             }
 
-            // Check if we're done filtering all packets, and then break out of the loop.
+            // Partition the iterator into two collections based on the device flag.
+            let (to_adapter, to_mstcp): (
+                IntermediateBufferArray<PACKET_NUMBER>,
+                IntermediateBufferArray<PACKET_NUMBER>,
+            ) = packets[0..packets_read]
+                .iter()
+                .partition(|ib| ib.get_device_flags() == DirectionFlags::PACKET_FLAG_ON_SEND);
+
+            // Re-inject packets back into the network stack
+            let to_adapter_packets_num = to_adapter.get_packet_number();
+            if to_adapter_packets_num > 0 {
+                match driver.send_packets_to_adapters_unsorted::<PACKET_NUMBER>(
+                    &to_adapter.into(),
+                    to_adapter_packets_num,
+                ) {
+                    Ok(_) => {}
+                    Err(err) => println!("Error sending packet to adapter. Error code = {err}"),
+                }
+            }
+
+            let to_mstcp_packets_num = to_mstcp.get_packet_number();
+            if to_mstcp_packets_num > 0 {
+                match driver.send_packets_to_mstcp_unsorted::<PACKET_NUMBER>(
+                    &to_mstcp.into(),
+                    to_mstcp_packets_num,
+                ) {
+                    Ok(_) => {}
+                    Err(err) => println!("Error sending packet to mstcp. Error code = {err}"),
+                };
+            }
+
             if packets_number == 0 {
                 println!("Filtering complete\n");
                 break;
@@ -158,7 +189,6 @@ fn main() -> Result<()> {
         CloseHandle(event) // Close the event handle.
     };
 
-    // Return the result.
     Ok(())
 }
 
