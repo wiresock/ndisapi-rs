@@ -25,17 +25,13 @@ pub struct IntermediateBufferArrayMut<'a, const N: usize> {
 impl<'a, const N: usize> IntermediateBufferArrayMut<'a, N> {
     /// Constructs a new `IntermediateBufferArrayMut` from an iterator over mutable references to `IntermediateBuffer` objects.
     /// The iterator is consumed up to `N` items and the number of initialized elements is tracked.
-    pub fn new(mut iter: impl Iterator<Item = &'a mut IntermediateBuffer>) -> Self {
+    pub fn new(iter: impl Iterator<Item = &'a mut IntermediateBuffer>) -> Self {
         const ARRAY_REPEAT_VALUE: Option<&mut IntermediateBuffer> = None;
         let mut array = [ARRAY_REPEAT_VALUE; N];
         let mut initialized_count = 0;
-        for i in 0..N {
-            if let Some(item) = iter.next() {
-                array[i] = Some(item);
-                initialized_count += 1;
-            } else {
-                break;
-            }
+        for (i, item) in iter.enumerate().take(N) {
+            array[i] = Some(item);
+            initialized_count += 1;
         }
         Self {
             array,
@@ -50,11 +46,11 @@ impl<'a, const N: usize> IntermediateBufferArrayMut<'a, N> {
 }
 
 /// Converts the `IntermediateBufferArrayMut` into an array of mutable references to `IntermediateBuffer` objects.
-impl<'a, const N: usize> Into<[Option<&'a mut IntermediateBuffer>; N]>
-    for IntermediateBufferArrayMut<'a, N>
+impl<'a, const N: usize> From<IntermediateBufferArrayMut<'a, N>>
+    for [Option<&'a mut IntermediateBuffer>; N]
 {
-    fn into(self) -> [Option<&'a mut IntermediateBuffer>; N] {
-        self.array
+    fn from(val: IntermediateBufferArrayMut<'a, N>) -> Self {
+        val.array
     }
 }
 
@@ -94,17 +90,13 @@ pub struct IntermediateBufferArray<'a, const N: usize> {
 impl<'a, const N: usize> IntermediateBufferArray<'a, N> {
     /// Constructs a new `IntermediateBufferArray` from an iterator over references to `IntermediateBuffer` objects.
     /// The iterator is consumed up to `N` items and the number of initialized elements is tracked.
-    pub fn new(mut iter: impl Iterator<Item = &'a IntermediateBuffer>) -> Self {
+    pub fn new(iter: impl Iterator<Item = &'a IntermediateBuffer>) -> Self {
         const ARRAY_REPEAT_VALUE: Option<&IntermediateBuffer> = None;
         let mut array = [ARRAY_REPEAT_VALUE; N];
         let mut initialized_count = 0;
-        for i in 0..N {
-            if let Some(item) = iter.next() {
-                array[i] = Some(item);
-                initialized_count += 1;
-            } else {
-                break;
-            }
+        for (i, item) in iter.enumerate().take(N) {
+            array[i] = Some(item);
+            initialized_count += 1;
         }
         Self {
             array,
@@ -118,12 +110,12 @@ impl<'a, const N: usize> IntermediateBufferArray<'a, N> {
     }
 }
 
-/// Converts the `IntermediateBufferArray` into an array of references to `IntermediateBuffer` objects.
-impl<'a, const N: usize> Into<[Option<&'a IntermediateBuffer>; N]>
-    for IntermediateBufferArray<'a, N>
+/// Converts the `IntermediateBufferArray` into an array of mutable references to `IntermediateBuffer` objects.
+impl<'a, const N: usize> From<IntermediateBufferArray<'a, N>>
+    for [Option<&'a IntermediateBuffer>; N]
 {
-    fn into(self) -> [Option<&'a IntermediateBuffer>; N] {
-        self.array
+    fn from(val: IntermediateBufferArray<'a, N>) -> Self {
+        val.array
     }
 }
 

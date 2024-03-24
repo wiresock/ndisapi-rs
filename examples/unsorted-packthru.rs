@@ -112,7 +112,7 @@ fn main() -> Result<()> {
             // Decrement the packets counter.
             packets_number = packets_number.saturating_sub(packets_read);
 
-            if (verbose) {
+            if verbose {
                 // Process each packet.
                 for i in 0..packets_read {
                     let direction_flags = packets[i].get_device_flags();

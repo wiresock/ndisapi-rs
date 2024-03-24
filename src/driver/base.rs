@@ -196,7 +196,7 @@ pub struct AdapterMode {
     pub flags: FilterFlags,
 }
 
-//// This structure represents an Ethernet packet with an optional mutable reference to an `IntermediateBuffer`.
+/// This structure represents an Ethernet packet with an optional mutable reference to an `IntermediateBuffer`.
 ///
 /// A Rust equivalent for the [_NDISRD_ETH_Packet](https://www.ntkernel.com/docs/windows-packet-filter-documentation/structures/_ndisrd_eth_packet/) structure.
 ///
