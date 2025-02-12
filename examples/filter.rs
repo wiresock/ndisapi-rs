@@ -406,6 +406,7 @@ fn load_block_ntkernel_https_filters(ndisapi: &Ndisapi) -> Result<()> {
                     ipv4: IpV4Filter::new(
                         IpV4FilterFlags::IP_V4_FILTER_PROTOCOL
                             | IpV4FilterFlags::IP_V4_FILTER_DEST_ADDRESS,
+                        IpAddressV4::default(),
                         IpAddressV4::new(
                             IP_SUBNET_V4_TYPE,
                             IpAddressV4Union {
@@ -433,7 +434,6 @@ fn load_block_ntkernel_https_filters(ndisapi: &Ndisapi) -> Result<()> {
                                 ),
                             },
                         ),
-                        IpAddressV4::default(),
                         IPPROTO_TCP,
                     ),
                 },
