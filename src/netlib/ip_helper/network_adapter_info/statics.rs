@@ -298,7 +298,7 @@ impl IphlpNetworkAdapterInfo {
                         for i in 0..unsafe { (*mib_table).NumEntries } {
                             let table_ptr = unsafe { (*mib_table).Table.as_ptr() };
                             let entry_ptr = unsafe { table_ptr.add(i as usize) };
-                            if IfLuid::from(unsafe { (*mib_table).Table[i as usize].InterfaceLuid })
+                            if IfLuid::from(unsafe { (*entry_ptr).InterfaceLuid })
                                 == IfLuid::from(current.Luid)
                             {
                                 let result =
@@ -407,7 +407,7 @@ impl IphlpNetworkAdapterInfo {
                         for i in 0..unsafe { (*mib_table).NumEntries } {
                             let table_ptr = unsafe { (*mib_table).Table.as_ptr() };
                             let entry_ptr = unsafe { table_ptr.add(i as usize) };
-                            if IfLuid::from(unsafe { (*mib_table).Table[i as usize].InterfaceLuid })
+                            if IfLuid::from(unsafe { (*entry_ptr).InterfaceLuid })
                                 == IfLuid::from(current.Luid)
                             {
                                 let result =
