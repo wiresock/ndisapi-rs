@@ -27,8 +27,8 @@ jobs:
       matrix:
         rust: [stable, nightly]
         runs-on:
-          - windows-2019
           - windows-2022
+          - windows-2025  # replaced 2019 with 2025
     runs-on: ${{ matrix.runs-on }}
     steps:
       - name: Checkout
