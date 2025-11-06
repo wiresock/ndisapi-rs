@@ -51,13 +51,13 @@ fn main() -> Result<()> {
                         println!("\t\t {}/{}", ip_addr, prefix_length);
                     }
                 } else {
-                    println!("\t IP Addresses: None configured");
+                    println!("\t IP Addresses: None found");
                 }
             } else {
-                println!("\t IP Addresses: Unable to query IP Helper API");
+                println!("\t IP Addresses: Not available");
             }
         } else {
-            println!("\t IP Addresses: Invalid MAC address");
+            println!("\t IP Addresses: Not available");
         }
 
         println!(
