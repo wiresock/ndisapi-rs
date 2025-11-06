@@ -7,7 +7,7 @@ use std::{
     ptr::write_bytes,
 };
 
-use ndisapi::{MacAddress, Ndisapi, PacketOidData, RasLinks};
+use ndisapi::{IphlpNetworkAdapterInfo, MacAddress, Ndisapi, PacketOidData, RasLinks};
 use windows::core::Result;
 
 const OID_802_3_CURRENT_ADDRESS: u32 = 0x01010102;
@@ -39,6 +39,27 @@ fn main() -> Result<()> {
             MacAddress::from_slice(adapter.get_hw_address()).unwrap_or_default()
         );
         println!("\t MTU: {}", adapter.get_mtu());
+
+        // Display IP addresses with their actual subnet prefixes using IP Helper API
+        if let Some(mac_addr) = MacAddress::from_slice(adapter.get_hw_address()) {
+            if let Some(ip_info) = IphlpNetworkAdapterInfo::get_connection_by_hw_address(&mac_addr)
+            {
+                let addresses_with_prefix = ip_info.unicast_address_list_with_prefix();
+                if !addresses_with_prefix.is_empty() {
+                    println!("\t IP Addresses:");
+                    for (ip_addr, prefix_length) in addresses_with_prefix {
+                        println!("\t\t {}/{}", ip_addr, prefix_length);
+                    }
+                } else {
+                    println!("\t IP Addresses: None found");
+                }
+            } else {
+                println!("\t IP Addresses: Not available");
+            }
+        } else {
+            println!("\t IP Addresses: Not available");
+        }
+
         println!(
             "\t FilterFlags: {:?}",
             driver.get_adapter_mode(adapter.get_handle()).unwrap()

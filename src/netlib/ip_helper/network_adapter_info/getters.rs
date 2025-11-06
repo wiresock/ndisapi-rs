@@ -83,6 +83,17 @@ impl IphlpNetworkAdapterInfo {
         &self.unicast_address_list
     }
 
+    /// Returns a list of unicast addresses with their prefix lengths for the adapter.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// let addresses_with_prefix = adapter_info.unicast_address_list_with_prefix();
+    /// ```
+    pub fn unicast_address_list_with_prefix(&self) -> Vec<(IpAddr, u8)> {
+        self.get_unicast_addresses_with_prefix()
+    }
+
     /// Returns a reference to the list of DNS server addresses for the adapter.
     ///
     /// # Examples

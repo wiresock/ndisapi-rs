@@ -270,4 +270,59 @@ impl IphlpNetworkAdapterInfo {
             Err(_) => false,
         }
     }
+
+    /// Gets unicast addresses with their prefix lengths from the Windows IP Helper API.
+    pub(crate) fn get_unicast_addresses_with_prefix(&self) -> Vec<(std::net::IpAddr, u8)> {
+        use std::net::IpAddr;
+        let mut addresses_with_prefix = Vec::new();
+
+        // Get the unicast IP address table from Windows
+        let mut table: *mut MIB_UNICASTIPADDRESS_TABLE = std::ptr::null_mut();
+
+        match unsafe { GetUnicastIpAddressTable(AF_UNSPEC, &mut table) }.ok() {
+            Ok(_) => {
+                let num_entries = unsafe { (*table).NumEntries };
+
+                // Iterate through all entries in the table
+                let table_slice = unsafe {
+                    std::slice::from_raw_parts((*table).Table.as_ptr(), num_entries as usize)
+                };
+                for entry in table_slice {
+                    // Check if this entry belongs to our adapter
+                    if IfLuid::from(entry.InterfaceLuid) == self.luid {
+                        let prefix_length = entry.OnLinkPrefixLength;
+
+                        // Convert the address based on address family
+                        match unsafe { entry.Address.si_family } {
+                            AF_INET => {
+                                // IPv4 address
+                                let ipv4_bytes = unsafe { entry.Address.Ipv4.sin_addr.S_un.S_addr }
+                                    .to_ne_bytes();
+                                let ipv4_addr = std::net::Ipv4Addr::from(ipv4_bytes);
+                                addresses_with_prefix.push((IpAddr::V4(ipv4_addr), prefix_length));
+                            }
+                            AF_INET6 => {
+                                // IPv6 address
+                                let ipv6_bytes = unsafe { entry.Address.Ipv6.sin6_addr.u.Byte };
+                                let ipv6_addr = std::net::Ipv6Addr::from(ipv6_bytes);
+                                addresses_with_prefix.push((IpAddr::V6(ipv6_addr), prefix_length));
+                            }
+                            _ => {
+                                // Unknown address family, skip
+                                continue;
+                            }
+                        }
+                    }
+                }
+
+                // Free the table memory
+                unsafe { FreeMibTable(table as *mut _) };
+            }
+            Err(_) => {
+                // Failed to get unicast address table, return empty vector
+            }
+        }
+
+        addresses_with_prefix
+    }
 }
