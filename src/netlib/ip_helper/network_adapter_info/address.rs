@@ -284,10 +284,10 @@ impl IphlpNetworkAdapterInfo {
                 let num_entries = unsafe { (*table).NumEntries };
 
                 // Iterate through all entries in the table
-                for i in 0..num_entries {
-                    let entry_ptr = unsafe { (*table).Table.as_ptr().add(i as usize) };
-                    let entry = unsafe { &*entry_ptr };
-
+                let table_slice = unsafe {
+                    std::slice::from_raw_parts((*table).Table.as_ptr(), num_entries as usize)
+                };
+                for entry in table_slice {
                     // Check if this entry belongs to our adapter
                     if IfLuid::from(entry.InterfaceLuid) == self.luid {
                         let prefix_length = entry.OnLinkPrefixLength;
