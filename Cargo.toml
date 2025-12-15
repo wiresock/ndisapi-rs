@@ -1,6 +1,6 @@
 [package]
 name = "ndisapi"
-version = "0.6.2"
+version = "0.6.3"
 edition = "2021"
 authors = ["Vadim Smirnov <vadim@ntkernel.com>"]
 description = "Rust crate for interacting with the Windows Packet Filter driver (NDISAPI)"
