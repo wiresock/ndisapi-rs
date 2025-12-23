@@ -16,8 +16,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+
       - name: Update toolchain
-        run: rustup update --no-self-update ${{ matrix.rust }} && rustup default ${{ matrix.rust }} && rustup component add clippy
+        run: |
+          rustup update --no-self-update ${{ matrix.rust }}
+          rustup default ${{ matrix.rust }}
+          rustup component add clippy
+
       - name: Run cargo static analysis checks
         run: |
           cargo check
@@ -26,21 +31,26 @@ jobs:
 
   publish:
     needs: static-analysis
-    runs-on: ubuntu-latest
+    runs-on: windows-2022
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+
       - name: Update toolchain
-        run: rustup update --no-self-update ${{ matrix.rust }} && rustup default ${{ matrix.rust }} && rustup component add clippy
+        run: |
+          rustup update --no-self-update stable
+          rustup default stable
+
       - name: Sanity check tag equals crate version
+        shell: bash
         run: |
           pkg_version=$(awk -F ' = ' '$1 ~ /version/ { gsub(/[\"]/, "", $2); printf("%s",$2); exit; }' Cargo.toml)
           if [[ "${{ github.ref_name }}" = "$pkg_version" ]]; then
-            echo "Github ref ${{ github.ref_name }} equals from parsed package version $pkg_version. Continuing..."
+            echo "GitHub ref ${{ github.ref_name }} equals parsed crate version $pkg_version. Continuing..."
           else
-            echo "Github ref ${{ github.ref_name }} differs from parsed package version $pkg_version! Aborting..."
+            echo "GitHub ref ${{ github.ref_name }} differs from parsed crate version $pkg_version! Aborting..."
             exit 1
           fi
+
       - name: Publish to crates.io
-        run: |
-          cargo publish --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: cargo publish --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
