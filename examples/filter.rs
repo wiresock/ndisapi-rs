@@ -679,7 +679,7 @@ fn main() -> Result<()> {
         Err(err) => panic!("Failed to load static filter into the driver. Error code: {err}"),
     }
 
-        // Create a Win32 event for packet arrival notification
+    // Create a Win32 event for packet arrival notification
     let event: HANDLE;
     unsafe {
         event = CreateEventW(None, true, false, None)?;
