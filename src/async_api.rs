@@ -375,6 +375,6 @@ impl Drop for AsyncNdisapiAdapter {
         // Setting the packet event for the specified adapter to NULL.
         _ = self
             .driver
-            .set_packet_event(self.adapter_handle, HANDLE(0isize));
+            .set_packet_event(self.adapter_handle, HANDLE(std::ptr::null_mut()));
     }
 }

@@ -285,14 +285,21 @@ impl PacketInfo {
     /// All other fields are set to `None` because they are not applicable to ARP packets.
     fn handle_arp_packet(eth_hdr: &EthernetFrame<&[u8]>) -> PacketInfo {
         let arp_packet = ArpPacket::new_unchecked(eth_hdr.payload());
+        
+        // Convert slices to fixed-size arrays
+        let src_bytes: [u8; 4] = arp_packet
+            .source_protocol_addr()
+            .try_into()
+            .unwrap_or([0u8; 4]);
+        let dst_bytes: [u8; 4] = arp_packet
+            .target_protocol_addr()
+            .try_into()
+            .unwrap_or([0u8; 4]);
+        
         PacketInfo {
             ethertype: EthernetProtocol::Arp,
-            src_addr: Some(IpAddress::Ipv4(Ipv4Address::from_bytes(
-                arp_packet.source_protocol_addr(),
-            ))),
-            dst_addr: Some(IpAddress::Ipv4(Ipv4Address::from_bytes(
-                arp_packet.target_protocol_addr(),
-            ))),
+            src_addr: Some(IpAddress::Ipv4(Ipv4Address::from_octets(src_bytes))),
+            dst_addr: Some(IpAddress::Ipv4(Ipv4Address::from_octets(dst_bytes))),
             protocol: None,
             src_port: None,
             dst_port: None,
@@ -516,14 +523,14 @@ async fn update_display(shared_table: Arc<Mutex<HashMap<PacketInfo, u32>>>) {
                 "{}:{}",
                 packet_info
                     .src_addr
-                    .unwrap_or(IpAddress::Ipv4(Ipv4Address([0u8; 4]))),
+                    .unwrap_or(IpAddress::Ipv4(Ipv4Address::new(0, 0, 0, 0))),
                 packet_info.src_port.unwrap_or_default()
             );
             let dst = format!(
                 "{}:{}",
                 packet_info
                     .dst_addr
-                    .unwrap_or(IpAddress::Ipv4(Ipv4Address([0u8; 4]))),
+                    .unwrap_or(IpAddress::Ipv4(Ipv4Address::new(0, 0, 0, 0))),
                 packet_info.dst_port.unwrap_or_default()
             );
             table.add_row(row![

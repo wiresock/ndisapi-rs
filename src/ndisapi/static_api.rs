@@ -88,7 +88,7 @@ impl Ndisapi {
             RegOpenKeyExW(
                 HKEY_LOCAL_MACHINE,
                 REGSTR_NETWORK_CONTROL_CLASS,
-                0,
+                Some(0),
                 KEY_READ,
                 &mut target_key,
             )
@@ -116,10 +116,10 @@ impl Ndisapi {
                 RegEnumKeyExW(
                     target_key,
                     index,
-                    PWSTR::from_raw(buffer.as_mut_ptr()),
+                    Some(PWSTR::from_raw(buffer.as_mut_ptr())),
                     &mut buffer_size as *mut u32,
                     None,
-                    PWSTR::null(),
+                    Some(PWSTR::null()),
                     None,
                     None,
                 )
@@ -132,7 +132,7 @@ impl Ndisapi {
                     RegOpenKeyExW(
                         target_key,
                         PCWSTR::from_raw(buffer.as_ptr()),
-                        0,
+                        Some(0),
                         KEY_READ,
                         &mut connection_key,
                     )
@@ -166,7 +166,7 @@ impl Ndisapi {
                                 RegOpenKeyExW(
                                     connection_key,
                                     REGSTR_LINKAGE,
-                                    0,
+                                    Some(0),
                                     KEY_READ,
                                     &mut linkage_key,
                                 )
@@ -310,7 +310,7 @@ impl Ndisapi {
             RegOpenKeyExW(
                 HKEY_LOCAL_MACHINE,
                 PCWSTR::from_raw(friendly_name_key.as_ptr()),
-                0,
+                Some(0),
                 KEY_READ,
                 &mut hkey,
             )
@@ -372,7 +372,7 @@ impl Ndisapi {
             RegOpenKeyExW(
                 HKEY_LOCAL_MACHINE,
                 self.get_driver_registry_key(),
-                0,
+                Some(0),
                 KEY_WRITE,
                 &mut hkey,
             )
@@ -384,7 +384,7 @@ impl Ndisapi {
                 RegSetValueExW(
                     hkey,
                     REGSTR_MTU_DECREMENT,
-                    0,
+                    Some(0),
                     REG_DWORD,
                     Some(mtu_decrement.to_ne_bytes().as_ref()),
                 )
@@ -409,7 +409,7 @@ impl Ndisapi {
             RegOpenKeyExW(
                 HKEY_LOCAL_MACHINE,
                 self.get_driver_registry_key(),
-                0,
+                Some(0),
                 KEY_READ,
                 &mut hkey,
             )
@@ -458,7 +458,7 @@ impl Ndisapi {
             RegOpenKeyExW(
                 HKEY_LOCAL_MACHINE,
                 self.get_driver_registry_key(),
-                0,
+                Some(0),
                 KEY_WRITE,
                 &mut hkey,
             )
@@ -469,7 +469,7 @@ impl Ndisapi {
                 RegSetValueExW(
                     hkey,
                     REGSTR_STARTUP_MODE,
-                    0,
+                    Some(0),
                     REG_DWORD,
                     Some(startup_mode.to_ne_bytes().as_ref()),
                 )
@@ -493,7 +493,7 @@ impl Ndisapi {
             RegOpenKeyExW(
                 HKEY_LOCAL_MACHINE,
                 self.get_driver_registry_key(),
-                0,
+                Some(0),
                 KEY_READ,
                 &mut hkey,
             )
@@ -546,7 +546,7 @@ impl Ndisapi {
             RegOpenKeyExW(
                 HKEY_LOCAL_MACHINE,
                 self.get_driver_registry_key(),
-                0,
+                Some(0),
                 KEY_WRITE,
                 &mut hkey,
             )
@@ -557,7 +557,7 @@ impl Ndisapi {
                 RegSetValueExW(
                     hkey,
                     REGSTR_POOL_SIZE,
-                    0,
+                    Some(0),
                     REG_DWORD,
                     Some(pool_size.to_ne_bytes().as_ref()),
                 )
@@ -585,7 +585,7 @@ impl Ndisapi {
             RegOpenKeyExW(
                 HKEY_LOCAL_MACHINE,
                 self.get_driver_registry_key(),
-                0,
+                Some(0),
                 KEY_READ,
                 &mut hkey,
             )
