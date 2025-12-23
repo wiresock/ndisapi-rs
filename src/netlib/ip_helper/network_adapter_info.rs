@@ -262,7 +262,7 @@ impl IphlpNetworkAdapterInfo {
             RegOpenKeyExW(
                 HKEY_LOCAL_MACHINE, // handle to a pre-defined registry key
                 PCWSTR::from_raw(friendly_name_key.as_ptr()), // registry key path as a PCWSTR pointer
-                0,                                            // reserved (ignored)
+                Some(0),                                      // reserved (ignored)
                 KEY_WRITE,                                    // desired security access level
                 &mut hkey, // pointer to a variable to receive the handle to the opened key
             )
@@ -275,7 +275,7 @@ impl IphlpNetworkAdapterInfo {
                 RegSetValueExW(
                     hkey,                                // handle to an open registry key
                     w!("Name"),                          // name of the value to be set
-                    0,                                   // reserved (ignored)
+                    Some(0),                             // reserved (ignored)
                     REG_SZ,                              // data type of the value
                     Some(self.friendly_name.as_bytes()), // pointer to the buffer containing the value's data
                 )
