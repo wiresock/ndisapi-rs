@@ -36,7 +36,7 @@ use std::{
 use windows::{
     core::Result,
     Win32::{
-        Foundation::{CloseHandle, BOOLEAN, HANDLE},
+        Foundation::{CloseHandle, HANDLE},
         System::Threading::{
             RegisterWaitForSingleObject, ResetEvent, UnregisterWaitEx, INFINITE,
             WT_EXECUTEINWAITTHREAD,
@@ -61,6 +61,10 @@ impl Win32EventStream {
         let waker = Arc::new(AtomicWaker::new());
         let ready = Arc::new(AtomicBool::new(false));
 
+        // Extract the raw pointer value from HANDLE to make it Send-safe
+        // We store it as usize since that's Send, and reconstruct HANDLE when needed
+        let event_handle_raw = event_handle.0 as usize;
+
         Ok(Self {
             waker: waker.clone(),
             ready: ready.clone(),
@@ -69,7 +73,9 @@ impl Win32EventStream {
                 Box::new(move |_| {
                     ready.store(true, Ordering::SeqCst);
                     waker.wake();
-                    let _ = unsafe { ResetEvent(event_handle) };
+                    // Reconstruct HANDLE from the raw value
+                    let handle = HANDLE(event_handle_raw as *mut c_void);
+                    let _ = unsafe { ResetEvent(handle) };
                 }),
             )?,
         })
@@ -116,18 +122,18 @@ impl std::fmt::Debug for Win32EventNotification {
     }
 }
 
-type Win32EventCallback = Box<dyn Fn(BOOLEAN) + Send>; // A type alias for the Win32 event callback function.
+type Win32EventCallback = Box<dyn Fn(bool) + Send>; // A type alias for the Win32 event callback function.
 
 impl Win32EventNotification {
     /// Register for Win32 event notifications.
     fn new(win32_event: HANDLE, cb: Win32EventCallback) -> Result<Self> {
         // Defining the global callback function for the Win32 event.
-        unsafe extern "system" fn global_callback(caller_context: *mut c_void, time_out: BOOLEAN) {
+        unsafe extern "system" fn global_callback(caller_context: *mut c_void, time_out: bool) {
             (**(caller_context as *mut Win32EventCallback))(time_out)
         }
 
         let callback = Box::into_raw(Box::new(cb)); // Creating a raw pointer to the callback function.
-        let mut wait_object: HANDLE = HANDLE(0isize);
+        let mut wait_object: HANDLE = HANDLE(std::ptr::null_mut());
 
         // Registering for Win32 event notifications.
         let rc = unsafe {
@@ -161,7 +167,7 @@ impl Drop for Win32EventNotification {
     fn drop(&mut self) {
         unsafe {
             // Deregistering the wait object.
-            if UnregisterWaitEx(self.wait_object, self.win32_event).is_err() {
+            if UnregisterWaitEx(self.wait_object, Some(self.win32_event)).is_err() {
                 //log::error!("error deregistering notification: {}", GetLastError);
             }
             drop(Box::from_raw(self.callback)); // Dropping the callback function.

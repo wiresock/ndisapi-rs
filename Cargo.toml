@@ -1,6 +1,6 @@
 [package]
 name = "ndisapi"
-version = "0.6.3"
+version = "0.6.4"
 edition = "2021"
 authors = ["Vadim Smirnov <vadim@ntkernel.com>"]
 description = "Rust crate for interacting with the Windows Packet Filter driver (NDISAPI)"
@@ -12,13 +12,13 @@ readme = "README.md"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bitflags = "2.4.2"
+bitflags = "2.10.0"
 futures = "0.3.30"
-uuid = { version = "1.7", features = ["v4", "serde", "v6"] }
-ipnetwork = "0.20.0"
+uuid = { version = "1.19.0", features = ["v4", "serde", "v6"] }
+ipnetwork = "0.21.1"
 
 [dependencies.windows]
-version = "0.54.0"
+version = "0.62.2"
 features = [
     "Win32_Foundation",
     "Win32_Security",
@@ -33,11 +33,10 @@ features = [
     ]
 
 [dev-dependencies]
-clap = {version = "4.5.2", features = ["derive"]}
+clap = {version = "4.5.53", features = ["derive"]}
 ctrlc = "3.4.4"
 futures = "0.3.30"
 tokio = { version = "1.36.0", features = ["full"] }
-smoltcp = "0.11.0"
+smoltcp = "0.12.0"
 prettytable-rs = "0.10.0"
-crossterm = "0.27.0"
-
+crossterm = "0.29.0"

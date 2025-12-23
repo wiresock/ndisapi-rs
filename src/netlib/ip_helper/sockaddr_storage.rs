@@ -27,8 +27,56 @@ use windows::Win32::Networking::WinSock::{
 /// The `SockAddrStorage` struct represents a socket address for IPv4 or IPv6 addresses.
 /// It can be created from various Windows socket address types and can be converted
 /// to a `std::net::SocketAddr`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug)]
 pub struct SockAddrStorage(pub SOCKADDR_STORAGE);
+
+impl PartialEq for SockAddrStorage {
+    fn eq(&self, other: &Self) -> bool {
+        // Compare based on the socket address contents
+        if self.0.ss_family != other.0.ss_family {
+            return false;
+        }
+
+        match self.0.ss_family {
+            AF_INET => {
+                let self_addr: &SOCKADDR_IN =
+                    unsafe { &*(&self.0 as *const _ as *const SOCKADDR_IN) };
+                let other_addr: &SOCKADDR_IN =
+                    unsafe { &*(&other.0 as *const _ as *const SOCKADDR_IN) };
+                self_addr.sin_port == other_addr.sin_port
+                    && unsafe {
+                        self_addr.sin_addr.S_un.S_addr == other_addr.sin_addr.S_un.S_addr
+                    }
+            }
+            AF_INET6 => {
+                let self_addr: &SOCKADDR_IN6 =
+                    unsafe { &*(&self.0 as *const _ as *const SOCKADDR_IN6) };
+                let other_addr: &SOCKADDR_IN6 =
+                    unsafe { &*(&other.0 as *const _ as *const SOCKADDR_IN6) };
+                self_addr.sin6_port == other_addr.sin6_port
+                    && unsafe { self_addr.sin6_addr.u.Byte == other_addr.sin6_addr.u.Byte }
+                    && self_addr.sin6_flowinfo == other_addr.sin6_flowinfo
+                    && unsafe {
+                        self_addr.Anonymous.sin6_scope_id == other_addr.Anonymous.sin6_scope_id
+                    }
+            }
+            _ => {
+                // For unknown address families, compare the raw bytes
+                unsafe {
+                    std::slice::from_raw_parts(
+                        &self.0 as *const _ as *const u8,
+                        std::mem::size_of::<SOCKADDR_STORAGE>(),
+                    ) == std::slice::from_raw_parts(
+                        &other.0 as *const _ as *const u8,
+                        std::mem::size_of::<SOCKADDR_STORAGE>(),
+                    )
+                }
+            }
+        }
+    }
+}
+
+impl Eq for SockAddrStorage {}
 
 impl SockAddrStorage {
     /// Constructs a new `SockAddrStorage` with all fields set to zero.
@@ -243,14 +291,15 @@ impl SockAddrStorage {
     pub fn to_socket_addr(&self) -> Option<SocketAddr> {
         match self.0.ss_family {
             AF_INET => {
-                let addr_in: &SOCKADDR_IN = unsafe { &*(self as *const _ as *const SOCKADDR_IN) };
+                let addr_in: &SOCKADDR_IN =
+                    unsafe { &*(&self.0 as *const _ as *const SOCKADDR_IN) };
                 let ip = Ipv4Addr::from(unsafe { addr_in.sin_addr.S_un.S_addr.to_be() });
                 let port = u16::from_be(addr_in.sin_port);
                 Some(SocketAddr::V4(SocketAddrV4::new(ip, port)))
             }
             AF_INET6 => {
                 let addr_in6: &SOCKADDR_IN6 =
-                    unsafe { &*(self as *const _ as *const SOCKADDR_IN6) };
+                    unsafe { &*(&self.0 as *const _ as *const SOCKADDR_IN6) };
                 let ip = Ipv6Addr::from(unsafe { addr_in6.sin6_addr.u.Byte });
                 let port = u16::from_be(addr_in6.sin6_port);
                 let flowinfo = addr_in6.sin6_flowinfo;
@@ -493,5 +542,40 @@ mod tests {
         let ip_address_info = SockAddrStorage::from_sockaddr_in6(sockaddr_in6);
         let ip_addr: IpAddr = ip_address_info.into();
         assert_eq!(ip_addr, IpAddr::V6(ipv6));
+    }
+
+    #[test]
+    fn test_partial_eq_ipv4_same() {
+        let addr1 = SockAddrStorage::from_ipv4_addr(Ipv4Addr::new(192, 168, 1, 1));
+        let addr2 = SockAddrStorage::from_ipv4_addr(Ipv4Addr::new(192, 168, 1, 1));
+        assert_eq!(addr1, addr2);
+    }
+
+    #[test]
+    fn test_partial_eq_ipv4_different() {
+        let addr1 = SockAddrStorage::from_ipv4_addr(Ipv4Addr::new(192, 168, 1, 1));
+        let addr2 = SockAddrStorage::from_ipv4_addr(Ipv4Addr::new(192, 168, 1, 2));
+        assert_ne!(addr1, addr2);
+    }
+
+    #[test]
+    fn test_partial_eq_ipv6_same() {
+        let addr1 = SockAddrStorage::from_ipv6_addr(Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 1));
+        let addr2 = SockAddrStorage::from_ipv6_addr(Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 1));
+        assert_eq!(addr1, addr2);
+    }
+
+    #[test]
+    fn test_partial_eq_ipv6_different() {
+        let addr1 = SockAddrStorage::from_ipv6_addr(Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 1));
+        let addr2 = SockAddrStorage::from_ipv6_addr(Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 2));
+        assert_ne!(addr1, addr2);
+    }
+
+    #[test]
+    fn test_partial_eq_different_families() {
+        let ipv4 = SockAddrStorage::from_ipv4_addr(Ipv4Addr::new(127, 0, 0, 1));
+        let ipv6 = SockAddrStorage::from_ipv6_addr(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1));
+        assert_ne!(ipv4, ipv6);
     }
 }
