@@ -27,8 +27,55 @@ use windows::Win32::Networking::WinSock::{
 /// The `SockAddrStorage` struct represents a socket address for IPv4 or IPv6 addresses.
 /// It can be created from various Windows socket address types and can be converted
 /// to a `std::net::SocketAddr`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug)]
 pub struct SockAddrStorage(pub SOCKADDR_STORAGE);
+
+impl PartialEq for SockAddrStorage {
+    fn eq(&self, other: &Self) -> bool {
+        // Compare based on the socket address contents
+        if self.0.ss_family != other.0.ss_family {
+            return false;
+        }
+
+        match self.0.ss_family {
+            AF_INET => {
+                let self_addr: &SOCKADDR_IN = unsafe { &*(self as *const _ as *const SOCKADDR_IN) };
+                let other_addr: &SOCKADDR_IN =
+                    unsafe { &*(other as *const _ as *const SOCKADDR_IN) };
+                unsafe {
+                    self_addr.sin_port == other_addr.sin_port
+                        && self_addr.sin_addr.S_un.S_addr == other_addr.sin_addr.S_un.S_addr
+                }
+            }
+            AF_INET6 => {
+                let self_addr: &SOCKADDR_IN6 =
+                    unsafe { &*(self as *const _ as *const SOCKADDR_IN6) };
+                let other_addr: &SOCKADDR_IN6 =
+                    unsafe { &*(other as *const _ as *const SOCKADDR_IN6) };
+                unsafe {
+                    self_addr.sin6_port == other_addr.sin6_port
+                        && self_addr.sin6_addr.u.Byte == other_addr.sin6_addr.u.Byte
+                        && self_addr.sin6_flowinfo == other_addr.sin6_flowinfo
+                        && self_addr.Anonymous.sin6_scope_id == other_addr.Anonymous.sin6_scope_id
+                }
+            }
+            _ => {
+                // For unknown address families, compare the raw bytes
+                unsafe {
+                    std::slice::from_raw_parts(
+                        self as *const _ as *const u8,
+                        std::mem::size_of::<SOCKADDR_STORAGE>(),
+                    ) == std::slice::from_raw_parts(
+                        other as *const _ as *const u8,
+                        std::mem::size_of::<SOCKADDR_STORAGE>(),
+                    )
+                }
+            }
+        }
+    }
+}
+
+impl Eq for SockAddrStorage {}
 
 impl SockAddrStorage {
     /// Constructs a new `SockAddrStorage` with all fields set to zero.
