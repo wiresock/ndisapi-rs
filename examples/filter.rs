@@ -679,11 +679,14 @@ fn main() -> Result<()> {
         Err(err) => panic!("Failed to load static filter into the driver. Error code: {err}"),
     }
 
-    // Create a Win32 event for packet arrival notification
+        // Create a Win32 event for packet arrival notification
     let event: HANDLE;
     unsafe {
         event = CreateEventW(None, true, false, None)?;
     }
+
+    // Convert HANDLE to usize for Send-safe closure capture
+    let event_raw = event.0 as usize;
 
     // Set up a Ctrl-C handler to terminate the packet processing loop
     let terminate: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
@@ -693,7 +696,9 @@ fn main() -> Result<()> {
         // Set the atomic flag to exit the loop
         ctrlc_pressed.store(true, Ordering::SeqCst);
         // Signal the event to release the loop if there are no packets in the queue
-        let _ = unsafe { SetEvent(event) };
+        // Reconstruct HANDLE from the raw value
+        let handle = HANDLE(event_raw as *mut std::ffi::c_void);
+        let _ = unsafe { SetEvent(handle) };
     })
     .expect("Error setting Ctrl-C handler");
 
