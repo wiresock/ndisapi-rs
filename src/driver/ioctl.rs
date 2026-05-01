@@ -276,3 +276,60 @@ pub const IOCTL_NDISRD_QUERY_IB_POOL_SIZE: u32 = ctl_code(
     METHOD_BUFFERED,
     FILE_ANY_ACCESS,
 );
+
+/// IOCTL_NDISRD_ADD_PACKET_FILTER_FRONT: A constant u32 value representing the IOCTL code to add a static packet filter to the front of the filter list.
+pub const IOCTL_NDISRD_ADD_PACKET_FILTER_FRONT: u32 = ctl_code(
+    FILE_DEVICE_NDISRD,
+    NDISRD_IOCTL_INDEX + 30,
+    METHOD_BUFFERED,
+    FILE_ANY_ACCESS,
+);
+
+/// IOCTL_NDISRD_ADD_PACKET_FILTER_BACK: A constant u32 value representing the IOCTL code to add a static packet filter to the back of the filter list.
+pub const IOCTL_NDISRD_ADD_PACKET_FILTER_BACK: u32 = ctl_code(
+    FILE_DEVICE_NDISRD,
+    NDISRD_IOCTL_INDEX + 31,
+    METHOD_BUFFERED,
+    FILE_ANY_ACCESS,
+);
+
+/// IOCTL_NDISRD_REMOVE_FILTER_BY_INDEX: A constant u32 value representing the IOCTL code to remove a static packet filter at the given zero-based index in the filter list.
+pub const IOCTL_NDISRD_REMOVE_FILTER_BY_INDEX: u32 = ctl_code(
+    FILE_DEVICE_NDISRD,
+    NDISRD_IOCTL_INDEX + 32,
+    METHOD_BUFFERED,
+    FILE_ANY_ACCESS,
+);
+
+/// IOCTL_NDISRD_GET_ADP_FILTERS_LIST: A constant u32 value representing the IOCTL code to retrieve the list of adapter-specific filters.
+#[allow(dead_code)]
+pub const IOCTL_NDISRD_GET_ADP_FILTERS_LIST: u32 = ctl_code(
+    FILE_DEVICE_NDISRD,
+    NDISRD_IOCTL_INDEX + 33,
+    METHOD_BUFFERED,
+    FILE_ANY_ACCESS,
+);
+
+/// IOCTL_NDISRD_INSERT_FILTER_BY_INDEX: A constant u32 value representing the IOCTL code to insert a static packet filter at a specified position in the filter list.
+pub const IOCTL_NDISRD_INSERT_FILTER_BY_INDEX: u32 = ctl_code(
+    FILE_DEVICE_NDISRD,
+    NDISRD_IOCTL_INDEX + 34,
+    METHOD_BUFFERED,
+    FILE_ANY_ACCESS,
+);
+
+/// IOCTL_NDISRD_SET_FILTER_CACHE_STATE: A constant u32 value representing the IOCTL code to enable or disable the packet filter cache.
+pub const IOCTL_NDISRD_SET_FILTER_CACHE_STATE: u32 = ctl_code(
+    FILE_DEVICE_NDISRD,
+    NDISRD_IOCTL_INDEX + 35,
+    METHOD_BUFFERED,
+    FILE_ANY_ACCESS,
+);
+
+/// IOCTL_NDISRD_SET_FRAGMENT_CACHE_STATE: A constant u32 value representing the IOCTL code to enable or disable the packet fragment cache.
+pub const IOCTL_NDISRD_SET_FRAGMENT_CACHE_STATE: u32 = ctl_code(
+    FILE_DEVICE_NDISRD,
+    NDISRD_IOCTL_INDEX + 36,
+    METHOD_BUFFERED,
+    FILE_ANY_ACCESS,
+);
