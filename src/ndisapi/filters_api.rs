@@ -170,4 +170,222 @@ impl Ndisapi {
             Err(e) => Err(e),
         }
     }
+
+    /// Adds a single static filter to the front (highest priority) of the static filter list
+    /// in the NDIS filter driver.
+    ///
+    /// # Arguments
+    ///
+    /// * `filter`: A reference to the [`StaticFilter`] to be added.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<()>`: If successful, returns `Ok(())`. Otherwise, returns an error.
+    pub fn add_static_filter_front(&self, filter: &StaticFilter) -> Result<()> {
+        match unsafe {
+            DeviceIoControl(
+                self.driver_handle,
+                IOCTL_NDISRD_ADD_PACKET_FILTER_FRONT,
+                Some(filter as *const StaticFilter as *const std::ffi::c_void),
+                size_of::<StaticFilter>() as u32,
+                None,
+                0,
+                None,
+                None,
+            )
+        } {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e),
+        }
+    }
+
+    /// Adds a single static filter to the back (lowest priority) of the static filter list
+    /// in the NDIS filter driver.
+    ///
+    /// # Arguments
+    ///
+    /// * `filter`: A reference to the [`StaticFilter`] to be added.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<()>`: If successful, returns `Ok(())`. Otherwise, returns an error.
+    pub fn add_static_filter_back(&self, filter: &StaticFilter) -> Result<()> {
+        match unsafe {
+            DeviceIoControl(
+                self.driver_handle,
+                IOCTL_NDISRD_ADD_PACKET_FILTER_BACK,
+                Some(filter as *const StaticFilter as *const std::ffi::c_void),
+                size_of::<StaticFilter>() as u32,
+                None,
+                0,
+                None,
+                None,
+            )
+        } {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e),
+        }
+    }
+
+    /// Inserts a single static filter at the specified zero-based position in the static
+    /// filter list in the NDIS filter driver.
+    ///
+    /// # Arguments
+    ///
+    /// * `filter`: A reference to the [`StaticFilter`] to be inserted.
+    /// * `position`: The zero-based position at which to insert the filter. Lower positions have
+    ///   higher priority because filters are processed in ascending order.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<()>`: If successful, returns `Ok(())`. Otherwise, returns an error.
+    pub fn insert_static_filter(&self, filter: &StaticFilter, position: u32) -> Result<()> {
+        let driver_data = StaticFilterWithPosition::new(*filter, position);
+
+        match unsafe {
+            DeviceIoControl(
+                self.driver_handle,
+                IOCTL_NDISRD_INSERT_FILTER_BY_INDEX,
+                Some(&driver_data as *const StaticFilterWithPosition as *const std::ffi::c_void),
+                size_of::<StaticFilterWithPosition>() as u32,
+                None,
+                0,
+                None,
+                None,
+            )
+        } {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e),
+        }
+    }
+
+    /// Removes the static filter identified by the given filter id from the static filter list
+    /// in the NDIS filter driver.
+    ///
+    /// # Arguments
+    ///
+    /// * `filter_id`: The unique identifier of the filter to remove.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<()>`: If successful, returns `Ok(())`. Otherwise, returns an error.
+    pub fn remove_static_filter(&self, filter_id: u32) -> Result<()> {
+        match unsafe {
+            DeviceIoControl(
+                self.driver_handle,
+                IOCTL_NDISRD_REMOVE_FILTER_BY_INDEX,
+                Some(&filter_id as *const u32 as *const std::ffi::c_void),
+                size_of::<u32>() as u32,
+                None,
+                0,
+                None,
+                None,
+            )
+        } {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e),
+        }
+    }
+
+    /// Sets the state of the packet filter cache in the NDIS filter driver.
+    ///
+    /// The packet filter cache is used to improve performance by caching packet filter lookups.
+    /// Disabling it may be useful for debugging or when the most up-to-date filter information
+    /// is required.
+    ///
+    /// # Arguments
+    ///
+    /// * `state`: `true` to enable the packet filter cache, `false` to disable it.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<()>`: If successful, returns `Ok(())`. Otherwise, returns an error.
+    pub fn set_packet_filter_cache_state(&self, state: bool) -> Result<()> {
+        let state: u32 = state as u32;
+
+        match unsafe {
+            DeviceIoControl(
+                self.driver_handle,
+                IOCTL_NDISRD_SET_FILTER_CACHE_STATE,
+                Some(&state as *const u32 as *const std::ffi::c_void),
+                size_of::<u32>() as u32,
+                None,
+                0,
+                None,
+                None,
+            )
+        } {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e),
+        }
+    }
+
+    /// Enables the packet filter cache in the NDIS filter driver.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<()>`: If successful, returns `Ok(())`. Otherwise, returns an error.
+    pub fn enable_packet_filter_cache(&self) -> Result<()> {
+        self.set_packet_filter_cache_state(true)
+    }
+
+    /// Disables the packet filter cache in the NDIS filter driver.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<()>`: If successful, returns `Ok(())`. Otherwise, returns an error.
+    pub fn disable_packet_filter_cache(&self) -> Result<()> {
+        self.set_packet_filter_cache_state(false)
+    }
+
+    /// Sets the state of the packet fragment cache in the NDIS filter driver.
+    ///
+    /// The packet fragment cache caches packet fragments to improve packet processing
+    /// performance. Disabling it may be useful for debugging or in scenarios where caching
+    /// is not desirable.
+    ///
+    /// # Arguments
+    ///
+    /// * `state`: `true` to enable the packet fragment cache, `false` to disable it.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<()>`: If successful, returns `Ok(())`. Otherwise, returns an error.
+    pub fn set_packet_fragment_cache_state(&self, state: bool) -> Result<()> {
+        let state: u32 = state as u32;
+
+        match unsafe {
+            DeviceIoControl(
+                self.driver_handle,
+                IOCTL_NDISRD_SET_FRAGMENT_CACHE_STATE,
+                Some(&state as *const u32 as *const std::ffi::c_void),
+                size_of::<u32>() as u32,
+                None,
+                0,
+                None,
+                None,
+            )
+        } {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e),
+        }
+    }
+
+    /// Enables the packet fragment cache in the NDIS filter driver.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<()>`: If successful, returns `Ok(())`. Otherwise, returns an error.
+    pub fn enable_packet_fragment_cache(&self) -> Result<()> {
+        self.set_packet_fragment_cache_state(true)
+    }
+
+    /// Disables the packet fragment cache in the NDIS filter driver.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<()>`: If successful, returns `Ok(())`. Otherwise, returns an error.
+    pub fn disable_packet_fragment_cache(&self) -> Result<()> {
+        self.set_packet_fragment_cache_state(false)
+    }
 }

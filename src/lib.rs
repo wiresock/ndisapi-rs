@@ -32,7 +32,7 @@ pub use crate::ndisapi::{
     IpAddressV4, IpAddressV4Union, IpAddressV6, IpAddressV6Union, IpRangeV4, IpRangeV6, IpSubnetV4,
     IpSubnetV6, IpV4Filter, IpV4FilterFlags, IpV6Filter, IpV6FilterFlags, Ndisapi,
     NetworkAdapterInfo, NetworkLayerFilter, NetworkLayerFilterUnion, PacketOidData, PortRange,
-    RasLinks, StaticFilter, StaticFilterTable, TcpUdpFilter, TcpUdpFilterFlags,
+    RasLinks, StaticFilter, StaticFilterTable, StaticFilterWithPosition, TcpUdpFilter, TcpUdpFilterFlags,
     TransportLayerFilter, TransportLayerFilterUnion, UnsortedReadRequest, UnsortedSendRequest,
     Version, ETHER_ADDR_LENGTH, ETH_802_3, FILTER_PACKET_DROP, FILTER_PACKET_DROP_RDR,
     FILTER_PACKET_PASS, FILTER_PACKET_PASS_RDR, FILTER_PACKET_REDIRECT, ICMP, IPV4, IPV6,

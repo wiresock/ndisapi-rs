@@ -821,3 +821,32 @@ impl<const N: usize> Default for StaticFilterTable<N> {
         Self::new()
     }
 }
+
+/// This structure combines a [`StaticFilter`] with a position value that specifies where in
+/// the static filter list the filter should be inserted. The position is a zero-based index;
+/// lower values indicate higher priority because filters are processed in ascending order.
+///
+/// * Rust equivalent for [_STATIC_FILTER_WITH_POSITION](https://www.ntkernel.com/docs/windows-packet-filter-documentation/structures/_static_filter_with_position/)
+#[repr(C, packed)]
+#[derive(Default, Copy, Clone)]
+pub struct StaticFilterWithPosition {
+    /// The position in the filter list where the new filter should be inserted.
+    pub position: u32,
+    /// The [`StaticFilter`] structure that defines the filter criteria and actions.
+    pub static_filter: StaticFilter,
+}
+
+impl StaticFilterWithPosition {
+    /// Creates a new `StaticFilterWithPosition` from the given filter and position.
+    ///
+    /// # Arguments
+    ///
+    /// * `static_filter` - The [`StaticFilter`] to be inserted.
+    /// * `position` - The zero-based position at which the filter should be inserted.
+    pub fn new(static_filter: StaticFilter, position: u32) -> Self {
+        Self {
+            position,
+            static_filter,
+        }
+    }
+}
