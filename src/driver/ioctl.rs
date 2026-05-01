@@ -293,7 +293,7 @@ pub const IOCTL_NDISRD_ADD_PACKET_FILTER_BACK: u32 = ctl_code(
     FILE_ANY_ACCESS,
 );
 
-/// IOCTL_NDISRD_REMOVE_FILTER_BY_INDEX: A constant u32 value representing the IOCTL code to remove a static packet filter by its unique identifier.
+/// IOCTL_NDISRD_REMOVE_FILTER_BY_INDEX: A constant u32 value representing the IOCTL code to remove a static packet filter at the given zero-based index in the filter list.
 pub const IOCTL_NDISRD_REMOVE_FILTER_BY_INDEX: u32 = ctl_code(
     FILE_DEVICE_NDISRD,
     NDISRD_IOCTL_INDEX + 32,

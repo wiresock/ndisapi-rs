@@ -171,8 +171,8 @@ impl Ndisapi {
         }
     }
 
-    /// Adds a single static filter to the front (highest priority) of the static filter list
-    /// in the NDIS filter driver.
+    /// Adds a single static filter to the front (highest priority) of the static packet filter
+    /// list in the NDIS filter driver.
     ///
     /// # Arguments
     ///
@@ -181,7 +181,7 @@ impl Ndisapi {
     /// # Returns
     ///
     /// * `Result<()>`: If successful, returns `Ok(())`. Otherwise, returns an error.
-    pub fn add_static_filter_front(&self, filter: &StaticFilter) -> Result<()> {
+    pub fn add_packet_filter_front(&self, filter: &StaticFilter) -> Result<()> {
         match unsafe {
             DeviceIoControl(
                 self.driver_handle,
@@ -199,8 +199,8 @@ impl Ndisapi {
         }
     }
 
-    /// Adds a single static filter to the back (lowest priority) of the static filter list
-    /// in the NDIS filter driver.
+    /// Adds a single static filter to the back (lowest priority) of the static packet filter
+    /// list in the NDIS filter driver.
     ///
     /// # Arguments
     ///
@@ -209,7 +209,7 @@ impl Ndisapi {
     /// # Returns
     ///
     /// * `Result<()>`: If successful, returns `Ok(())`. Otherwise, returns an error.
-    pub fn add_static_filter_back(&self, filter: &StaticFilter) -> Result<()> {
+    pub fn add_packet_filter_back(&self, filter: &StaticFilter) -> Result<()> {
         match unsafe {
             DeviceIoControl(
                 self.driver_handle,
@@ -228,7 +228,7 @@ impl Ndisapi {
     }
 
     /// Inserts a single static filter at the specified zero-based position in the static
-    /// filter list in the NDIS filter driver.
+    /// packet filter list in the NDIS filter driver.
     ///
     /// # Arguments
     ///
@@ -239,7 +239,7 @@ impl Ndisapi {
     /// # Returns
     ///
     /// * `Result<()>`: If successful, returns `Ok(())`. Otherwise, returns an error.
-    pub fn insert_static_filter(&self, filter: &StaticFilter, position: u32) -> Result<()> {
+    pub fn insert_packet_filter(&self, filter: &StaticFilter, position: u32) -> Result<()> {
         let driver_data = StaticFilterWithPosition::new(*filter, position);
 
         match unsafe {
@@ -259,22 +259,22 @@ impl Ndisapi {
         }
     }
 
-    /// Removes the static filter identified by the given filter id from the static filter list
-    /// in the NDIS filter driver.
+    /// Removes the static filter at the given zero-based index from the static packet filter
+    /// list in the NDIS filter driver.
     ///
     /// # Arguments
     ///
-    /// * `filter_id`: The unique identifier of the filter to remove.
+    /// * `filter_index`: The zero-based index of the filter to remove.
     ///
     /// # Returns
     ///
     /// * `Result<()>`: If successful, returns `Ok(())`. Otherwise, returns an error.
-    pub fn remove_static_filter(&self, filter_id: u32) -> Result<()> {
+    pub fn remove_packet_filter(&self, filter_index: u32) -> Result<()> {
         match unsafe {
             DeviceIoControl(
                 self.driver_handle,
                 IOCTL_NDISRD_REMOVE_FILTER_BY_INDEX,
-                Some(&filter_id as *const u32 as *const std::ffi::c_void),
+                Some(&filter_index as *const u32 as *const std::ffi::c_void),
                 size_of::<u32>() as u32,
                 None,
                 0,
