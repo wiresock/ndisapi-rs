@@ -53,7 +53,13 @@ pub use crate::ndisapi::fastio_api::{IntermediateBufferArray, IntermediateBuffer
 /// For example, you can use the `Ndisapi::read_packets()` method to read packets from the network adapter, or the `Ndisapi::send_packets_to_adapter()`
 /// method to write packets to the network adapter. You can also use the `Ndisapi::set_packet_filter_table()` method to set a filter that specifies which
 /// packets should be captured or dropped.
-#[derive(Debug, Clone)]
+///
+/// `Ndisapi` owns the driver `HANDLE` and closes it in its `Drop` implementation. For this
+/// reason it deliberately does **not** implement `Clone`: copying the handle would allow one
+/// instance to close it while another is still using it, leading to a double-close or to
+/// operations on a reused OS handle. When shared ownership is required, wrap the instance in
+/// an [`std::sync::Arc`] (`Arc<Ndisapi>`), as the asynchronous API and examples do.
+#[derive(Debug)]
 pub struct Ndisapi {
     // Represents a handle to the NDIS filter driver.
     driver_handle: HANDLE,

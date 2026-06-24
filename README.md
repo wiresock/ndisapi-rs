@@ -28,7 +28,7 @@ Add the following to your `Cargo.toml` file:
 
 ```toml
 [dependencies]
-ndisapi = "0.6.6"
+ndisapi = "0.7.0"
 ```
 
 ## Usage

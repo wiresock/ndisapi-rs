@@ -161,26 +161,36 @@ impl IntermediateBuffer {
 
     /// Sets the length of the packet data stored in the `IntermediateBuffer`.
     ///
+    /// The value is clamped to `MAX_ETHER_FRAME` (the capacity of the underlying buffer) so that
+    /// a subsequent call to [`get_data`](Self::get_data) or [`get_data_mut`](Self::get_data_mut)
+    /// can never panic with an out-of-bounds slice.
+    ///
     /// # Arguments
     /// * `length`: A `u32` value representing the new length of the packet data.
     pub fn set_length(&mut self, length: u32) {
-        self.length = length
+        self.length = length.min(MAX_ETHER_FRAME as u32);
     }
 
     /// Returns a reference to the data stored in the buffer.
     ///
     /// This method returns a reference to the data stored in the buffer as a slice of bytes.
     /// The length of the slice is determined by the `length` field of the `buffer` struct.
+    ///
+    /// The length is clamped to the buffer capacity, so even a corrupt or version-mismatched
+    /// driver response that reports an oversized length cannot cause a panic here.
     pub fn get_data(&self) -> &[u8] {
-        &self.buffer.0[..self.length as usize]
+        &self.buffer.0[..(self.length as usize).min(MAX_ETHER_FRAME)]
     }
 
     /// Returns a mutable reference to the data stored in the buffer.
     ///
     /// This method returns a mutable reference to the data stored in the buffer as a slice of bytes.
     /// The length of the slice is determined by the `length` field of the `buffer` struct.
+    ///
+    /// The length is clamped to the buffer capacity, so even a corrupt or version-mismatched
+    /// driver response that reports an oversized length cannot cause a panic here.
     pub fn get_data_mut(&mut self) -> &mut [u8] {
-        &mut self.buffer.0[..self.length as usize]
+        &mut self.buffer.0[..(self.length as usize).min(MAX_ETHER_FRAME)]
     }
 }
 

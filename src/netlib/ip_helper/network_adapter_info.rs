@@ -10,7 +10,7 @@ use windows::{
             },
             Ndis::{NDIS_MEDIUM, NDIS_PHYSICAL_MEDIUM},
         },
-        Networking::WinSock::{AF_INET, AF_INET6},
+        Networking::WinSock::{AF_INET, AF_INET6, SOCKET_ADDRESS},
         System::Registry::{
             RegCloseKey, RegOpenKeyExW, RegSetValueExW, HKEY, HKEY_LOCAL_MACHINE, KEY_WRITE, REG_SZ,
         },
@@ -78,6 +78,26 @@ pub struct IphlpNetworkAdapterInfo {
     ndis_wan_ipv6_link: MacAddress,
 }
 
+/// Converts a Windows `SOCKET_ADDRESS` (a `sockaddr` pointer plus its length) into an `IpAddr`.
+///
+/// The length is honored so IPv6 addresses (28-byte `SOCKADDR_IN6`) are not truncated to the
+/// 16-byte generic `SOCKADDR`. Returns `None` for a null/empty address or an unrecognized
+/// address family instead of panicking on data coming from the OS.
+///
+/// # Safety
+///
+/// `socket_address.lpSockaddr` must be null or point to at least `iSockaddrLength` valid,
+/// readable bytes.
+unsafe fn socket_address_to_ip(socket_address: &SOCKET_ADDRESS) -> Option<IpAddr> {
+    let storage = unsafe {
+        SockAddrStorage::from_raw_sockaddr(
+            socket_address.lpSockaddr,
+            socket_address.iSockaddrLength as usize,
+        )
+    }?;
+    storage.to_socket_addr().map(|socket_addr| socket_addr.ip())
+}
+
 impl IphlpNetworkAdapterInfo {
     /// Constructs a new `IphlpNetworkAdapterInfo` instance from raw pointers to `IP_ADAPTER_ADDRESSES_LH`
     /// and `MIB_IF_ROW2` structures.
@@ -117,31 +137,27 @@ impl IphlpNetworkAdapterInfo {
         let mut unicast_address_list = Vec::new();
         let mut unicast_address = address.FirstUnicastAddress;
         while !unicast_address.is_null() {
-            unicast_address_list.push(
-                SockAddrStorage::from_sockaddr(unsafe { *(*unicast_address).Address.lpSockaddr })
-                    .into(),
-            );
+            if let Some(ip) = unsafe { socket_address_to_ip(&(*unicast_address).Address) } {
+                unicast_address_list.push(ip);
+            }
             unicast_address = unsafe { (*unicast_address).Next };
         }
 
         let mut dns_server_address_list = Vec::new();
         let mut dns_address = address.FirstDnsServerAddress;
         while !dns_address.is_null() {
-            dns_server_address_list.push(
-                SockAddrStorage::from_sockaddr(unsafe { *(*dns_address).Address.lpSockaddr })
-                    .into(),
-            );
+            if let Some(ip) = unsafe { socket_address_to_ip(&(*dns_address).Address) } {
+                dns_server_address_list.push(ip);
+            }
             dns_address = unsafe { (*dns_address).Next };
         }
 
         let mut gateway_address_list = Vec::new();
         let mut gateway_address = address.FirstGatewayAddress;
         while !gateway_address.is_null() {
-            gateway_address_list.push(IpGatewayInfo::new(
-                SockAddrStorage::from_sockaddr(unsafe { *(*gateway_address).Address.lpSockaddr })
-                    .into(),
-                None,
-            ));
+            if let Some(ip) = unsafe { socket_address_to_ip(&(*gateway_address).Address) } {
+                gateway_address_list.push(IpGatewayInfo::new(ip, None));
+            }
             gateway_address = unsafe { (*gateway_address).Next };
         }
 
@@ -243,7 +259,7 @@ impl IphlpNetworkAdapterInfo {
     ///
     // This function sets the friendly name of a network adapter and updates the registry accordingly
     pub fn set_friendly_name(&mut self, friendly_name: impl Into<String>) -> Result<()> {
-        self.friendly_name = friendly_name.into(); // set the friendly name of the adapter to the input value
+        let friendly_name = friendly_name.into();
 
         // create the registry key path for the adapter's connection settings
         let friendly_name_key = format!(
@@ -254,6 +270,21 @@ impl IphlpNetworkAdapterInfo {
         // Convert the string to UTF16 array and get a pointer to it as PCWSTR
         let mut friendly_name_key = friendly_name_key.encode_utf16().collect::<Vec<u16>>();
         friendly_name_key.push(0); // add null terminator to end of key string
+
+        // A `REG_SZ` value is a NUL-terminated UTF-16 string. Encode the friendly name as
+        // UTF-16, append the terminator, and reinterpret the `u16` slice as the raw bytes
+        // expected by `RegSetValueExW`. Passing the UTF-8 bytes (as the previous code did)
+        // would write an invalid byte string and corrupt the adapter's display name.
+        let friendly_name_utf16: Vec<u16> = friendly_name
+            .encode_utf16()
+            .chain(std::iter::once(0))
+            .collect();
+        let friendly_name_bytes = unsafe {
+            std::slice::from_raw_parts(
+                friendly_name_utf16.as_ptr() as *const u8,
+                std::mem::size_of_val(friendly_name_utf16.as_slice()),
+            )
+        };
 
         let mut hkey = HKEY::default();
 
@@ -270,14 +301,14 @@ impl IphlpNetworkAdapterInfo {
 
         if result.is_ok() {
             // if the key was successfully opened
-            // set the AdapterName registry value to the friendly name of the adapter
+            // set the Name registry value to the friendly name of the adapter
             result = unsafe {
                 RegSetValueExW(
-                    hkey,                                // handle to an open registry key
-                    w!("Name"),                          // name of the value to be set
-                    Some(0),                             // reserved (ignored)
-                    REG_SZ,                              // data type of the value
-                    Some(self.friendly_name.as_bytes()), // pointer to the buffer containing the value's data
+                    hkey,                      // handle to an open registry key
+                    w!("Name"),                // name of the value to be set
+                    Some(0),                   // reserved (ignored)
+                    REG_SZ,                    // data type of the value
+                    Some(friendly_name_bytes), // UTF-16 bytes (incl. NUL terminator)
                 )
             };
 
@@ -286,7 +317,11 @@ impl IphlpNetworkAdapterInfo {
             };
         }
 
-        result.ok()
+        // Only update the cached friendly name once the registry write has succeeded, so the
+        // in-memory state stays consistent with what is persisted in the registry.
+        result.ok()?;
+        self.friendly_name = friendly_name;
+        Ok(())
     }
 
     /// Checks if IP address information in the provided network_adapter_info is different

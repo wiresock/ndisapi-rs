@@ -36,7 +36,7 @@ use std::{
 use windows::{
     core::Result,
     Win32::{
-        Foundation::{CloseHandle, HANDLE},
+        Foundation::{CloseHandle, HANDLE, INVALID_HANDLE_VALUE},
         System::Threading::{
             RegisterWaitForSingleObject, ResetEvent, UnregisterWaitEx, INFINITE,
             WT_EXECUTEINWAITTHREAD,
@@ -89,14 +89,18 @@ impl Stream for Win32EventStream {
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let this = Pin::into_inner(self);
 
-        if this.ready.swap(false, Ordering::Relaxed) {
-            // The Win32 event is ready, so we clear the ready flag and wake the waker, if present.
-            // Then we reset the event to non-signaled state.
-            // We signal readiness by returning `Poll::Ready`.
+        // Register the waker *before* checking readiness. The callback always stores `true` into
+        // `ready` and only then calls `waker.wake()`. By registering first and re-checking, a
+        // signal that fires between the check and the registration cannot be lost: either we
+        // observe `ready == true` here, or the callback's `wake()` targets the waker we just
+        // registered. (The previous order — check then register — could sleep forever if the
+        // event was signaled in the gap between the two.)
+        this.waker.register(cx.waker());
+
+        if this.ready.swap(false, Ordering::SeqCst) {
+            // The Win32 event was signaled; clear the flag and report readiness.
             Poll::Ready(Some(Ok(())))
         } else {
-            // The Win32 event is not ready, so we register the waker and return `Poll::Pending`.
-            this.waker.register(cx.waker());
             Poll::Pending
         }
     }
@@ -165,18 +169,33 @@ impl Win32EventNotification {
 impl Drop for Win32EventNotification {
     /// Implementing the Drop trait for the Win32EventNotification struct.
     fn drop(&mut self) {
-        unsafe {
-            // Deregistering the wait object.
-            if UnregisterWaitEx(self.wait_object, Some(self.win32_event)).is_err() {
-                //log::error!("error deregistering notification: {}", GetLastError);
+        // Deregister the wait and *block until any in-flight callback has finished*. Passing
+        // `INVALID_HANDLE_VALUE` as the completion event makes `UnregisterWaitEx` wait for
+        // outstanding callbacks to complete before returning. Only once that succeeds is it
+        // safe to free the callback box and close the event.
+        //
+        // Passing the event handle itself (as the original code did) merely asks the OS to
+        // signal that event on completion *without* waiting; tearing down a registered wait
+        // while it is still pending is explicitly undefined per the
+        // `RegisterWaitForSingleObject` documentation.
+        match unsafe { UnregisterWaitEx(self.wait_object, Some(INVALID_HANDLE_VALUE)) } {
+            Ok(()) => {
+                // The wait is gone and no callback can be running, so the boxed callback can be
+                // dropped and the event handle closed safely.
+                drop(unsafe { Box::from_raw(self.callback) });
+                let _ = unsafe { CloseHandle(self.win32_event) };
             }
-            drop(Box::from_raw(self.callback)); // Dropping the callback function.
+            Err(_e) => {
+                // Deregistration failed, so we cannot prove that the wait is gone or that no
+                // callback is (or will later be) running. Freeing the callback box or closing
+                // the event here would risk a use-after-free of the callback and a
+                // use-after-close of the event handle (the callback also touches the event via
+                // `ResetEvent`). A leak is strictly preferable to undefined behavior, so we
+                // deliberately leak both the callback allocation and the event handle on this
+                // (expected-to-be-unreachable) path.
+                //log::error!("error deregistering notification: {_e}");
+            }
         }
-
-        let _ = unsafe {
-            // Closing the handle to the event.
-            CloseHandle(self.win32_event)
-        };
     }
 }
 

@@ -71,7 +71,8 @@ impl Ndisapi {
     pub fn get_hw_packet_filter(&self, adapter_handle: HANDLE) -> Result<u32> {
         let mut oid = PacketOidData::new(adapter_handle, OID_GEN_CURRENT_PACKET_FILTER, 0u32);
 
-        self.ndis_get_request::<_>(&mut oid)?;
+        // SAFETY: `T` is `u32`, a plain-old-data type for which every byte pattern is valid.
+        unsafe { self.ndis_get_request::<_>(&mut oid)? };
 
         Ok(oid.data)
     }
@@ -117,8 +118,8 @@ impl Ndisapi {
     /// # Returns
     ///
     /// * `Result<Vec<NetworkAdapterInfo>>` - A Result containing a vector of NetworkAdapterInfo
-    /// structs representing the available network interfaces if the query was successful,
-    /// or an error if it failed.
+    ///   structs representing the available network interfaces if the query was successful,
+    ///   or an error if it failed.
     pub fn get_tcpip_bound_adapters_info(&self) -> Result<Vec<NetworkAdapterInfo>> {
         let mut adapters: MaybeUninit<TcpAdapterList> = ::std::mem::MaybeUninit::uninit();
 
@@ -138,9 +139,15 @@ impl Ndisapi {
                 let mut result = Vec::new();
                 let adapters = unsafe { adapters.assume_init() };
 
-                for i in 0..adapters.adapter_count as usize {
-                    let adapter_name =
-                        String::from_utf8(adapters.adapter_name_list[i].to_vec()).unwrap();
+                // Clamp the driver-reported count to the static capacity of the list. A malformed
+                // or version-mismatched driver response could otherwise drive the loop past the
+                // bounds of the fixed-size arrays and panic.
+                let adapter_count = (adapters.adapter_count as usize).min(ADAPTER_LIST_SIZE);
+
+                for i in 0..adapter_count {
+                    // Adapter names are NUL-terminated byte strings. Use a lossy conversion so a
+                    // non-UTF-8 name from the driver cannot panic the enumeration.
+                    let adapter_name = String::from_utf8_lossy(&adapters.adapter_name_list[i]);
                     let adapter_name = adapter_name.trim_end_matches(char::from(0)).to_owned();
                     let next = NetworkAdapterInfo::new(
                         adapter_name,
@@ -206,7 +213,17 @@ impl Ndisapi {
     ///
     /// * `Result<()>` - A Result indicating whether the query operation was successful or not.
     ///   On success, returns `Ok(())`. On failure, returns an error.
-    pub fn ndis_get_request<T>(&self, oid_request: &mut PacketOidData<T>) -> Result<()> {
+    ///
+    /// # Safety
+    ///
+    /// The driver writes `size_of::<PacketOidData<T>>()` bytes back into `*oid_request` through
+    /// `DeviceIoControl`, overwriting the `data: T` field with arbitrary bytes. The caller must
+    /// guarantee that `T` is a "plain old data" type for which **every** byte pattern is a valid
+    /// value — for example integers or `#[repr(C)]` structs/arrays composed solely of such
+    /// types. Using a `T` that has validity invariants (`bool`, `char`, enums, references,
+    /// `NonZero*`, …) or that owns resources / implements `Drop` (`String`, `Vec`, `Box`, …) is
+    /// undefined behavior.
+    pub unsafe fn ndis_get_request<T>(&self, oid_request: &mut PacketOidData<T>) -> Result<()> {
         match unsafe {
             DeviceIoControl(
                 self.driver_handle,
@@ -241,7 +258,14 @@ impl Ndisapi {
     ///
     /// * `Result<()>` - A Result indicating whether the set operation was successful or not.
     ///   On success, returns `Ok(())`. On failure, returns an error.
-    pub fn ndis_set_request<T>(&self, oid_request: &PacketOidData<T>) -> Result<()> {
+    ///
+    /// # Safety
+    ///
+    /// The entire `PacketOidData<T>` (including the `data: T` field) is copied to the driver as
+    /// raw bytes. The caller must ensure `T` is a "plain old data" type so that no uninitialized
+    /// padding or values with validity invariants are exposed. Passing a type that owns
+    /// resources or implements `Drop` (`String`, `Vec`, `Box`, …) is undefined behavior.
+    pub unsafe fn ndis_set_request<T>(&self, oid_request: &PacketOidData<T>) -> Result<()> {
         match unsafe {
             DeviceIoControl(
                 self.driver_handle,
@@ -346,7 +370,8 @@ impl Ndisapi {
     pub fn set_hw_packet_filter(&self, adapter_handle: HANDLE, filter: u32) -> Result<()> {
         let oid = PacketOidData::new(adapter_handle, OID_GEN_CURRENT_PACKET_FILTER, filter);
 
-        self.ndis_set_request::<_>(&oid)?;
+        // SAFETY: `T` is `u32`, a plain-old-data type safe to copy to the driver.
+        unsafe { self.ndis_set_request::<_>(&oid)? };
 
         Ok(())
     }

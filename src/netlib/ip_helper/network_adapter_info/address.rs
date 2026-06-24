@@ -182,14 +182,17 @@ impl IphlpNetworkAdapterInfo {
 
         match unsafe { GetUnicastIpAddressTable(AF_UNSPEC, &mut table) }.ok() {
             Ok(_) => {
+                // Accumulate per-entry results so a single failed deletion is reported instead of
+                // being masked by an unconditional `true`.
+                let mut success = true;
                 for i in 0..unsafe { (*table).NumEntries } {
                     let entry = unsafe { &mut (*table).Table[i as usize] };
                     if IfLuid::from(entry.InterfaceLuid) == self.luid {
-                        let _ = unsafe { DeleteUnicastIpAddressEntry(entry) };
+                        success &= unsafe { DeleteUnicastIpAddressEntry(entry) }.is_ok();
                     }
                 }
                 unsafe { FreeMibTable(table as *mut _) };
-                true
+                success
             }
             Err(_) => false,
         }
@@ -215,6 +218,9 @@ impl IphlpNetworkAdapterInfo {
 
         match unsafe { GetUnicastIpAddressTable(AF_INET, &mut table) }.ok() {
             Ok(_) => {
+                // Report failure if a matching entry could not be deleted instead of always
+                // returning `true`.
+                let mut success = true;
                 for i in 0..unsafe { (*table).NumEntries } {
                     let entry = unsafe { &(*table).Table[i as usize] };
 
@@ -223,12 +229,12 @@ impl IphlpNetworkAdapterInfo {
                             unsafe { entry.Address.Ipv4.sin_addr.S_un.S_addr }.to_ne_bytes(),
                         ) == address
                     {
-                        let _ = unsafe { DeleteUnicastIpAddressEntry(entry) };
+                        success &= unsafe { DeleteUnicastIpAddressEntry(entry) }.is_ok();
                     }
                 }
 
                 unsafe { FreeMibTable(table as *mut _) };
-                true
+                success
             }
             Err(_) => false,
         }
@@ -254,18 +260,21 @@ impl IphlpNetworkAdapterInfo {
 
         match unsafe { GetUnicastIpAddressTable(AF_INET6, &mut table) }.ok() {
             Ok(_) => {
+                // Report failure if a matching entry could not be deleted instead of always
+                // returning `true`.
+                let mut success = true;
                 for i in 0..unsafe { (*table).NumEntries } {
                     let entry = unsafe { &(*table).Table[i as usize] };
 
                     if IfLuid::from(entry.InterfaceLuid) == self.luid
                         && Ipv6Addr::from(unsafe { entry.Address.Ipv6.sin6_addr.u.Byte }) == address
                     {
-                        let _ = unsafe { DeleteUnicastIpAddressEntry(entry) };
+                        success &= unsafe { DeleteUnicastIpAddressEntry(entry) }.is_ok();
                     }
                 }
 
                 unsafe { FreeMibTable(table as *mut _) };
-                true
+                success
             }
             Err(_) => false,
         }

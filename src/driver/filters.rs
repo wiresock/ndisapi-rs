@@ -15,7 +15,7 @@
 //! * [`TcpUdpFilter`] - Represents a static filter for TCP and UDP packets.
 //! * [`IcmpFilter`] - Represents a static filter for ICMP packets.
 //! * [`StaticFilter`] - Represents a single static filter entry that combines filter conditions for various
-//! layers and the filter action to be taken.
+//!   layers and the filter action to be taken.
 //! * [`StaticFilterTable`] - Represents a table of static filters, used for managing multiple static filter entries.
 
 // Import required external crates and types

@@ -64,7 +64,7 @@ impl From<u64> for IfLuid {
     /// # Arguments
     ///
     /// * `value` - The u64 value that should be used to set the Value field of the NET_LUID_LH
-    ///             structure.
+    ///   structure.
     ///
     /// # Returns
     ///
