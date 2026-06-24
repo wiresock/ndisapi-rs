@@ -89,12 +89,11 @@ pub struct IphlpNetworkAdapterInfo {
 /// `socket_address.lpSockaddr` must be null or point to at least `iSockaddrLength` valid,
 /// readable bytes.
 unsafe fn socket_address_to_ip(socket_address: &SOCKET_ADDRESS) -> Option<IpAddr> {
-    let storage = unsafe {
-        SockAddrStorage::from_raw_sockaddr(
-            socket_address.lpSockaddr,
-            socket_address.iSockaddrLength as usize,
-        )
-    }?;
+    // `iSockaddrLength` is a signed `i32`. Reject non-positive lengths via `try_from` so a
+    // negative value cannot wrap to a huge `usize` and make `from_raw_sockaddr` read past the
+    // end of the source sockaddr.
+    let len = usize::try_from(socket_address.iSockaddrLength).ok()?;
+    let storage = unsafe { SockAddrStorage::from_raw_sockaddr(socket_address.lpSockaddr, len) }?;
     storage.to_socket_addr().map(|socket_addr| socket_addr.ip())
 }
 

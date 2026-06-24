@@ -101,10 +101,11 @@ impl SockAddrStorage {
     /// Builds an `IN_ADDR` from an `Ipv4Addr`, storing the four octets in network byte order
     /// (the in-memory layout the Windows socket APIs expect) regardless of host endianness.
     ///
-    /// Centralizing this conversion keeps every `SockAddrStorage` constructor consistent. An
-    /// earlier version of `socket_addr_to_sockaddr_storage` stored the address in host byte
-    /// order (`to_le`), which reversed IPv4 addresses parsed from strings on little-endian
-    /// Windows relative to the addresses produced by `from_ipv4_addr`.
+    /// Centralizing this conversion keeps every `SockAddrStorage` constructor consistent.
+    /// Previously the constructors disagreed: `from_ipv4_addr` used `to_be()` while
+    /// `socket_addr_to_sockaddr_storage` used `to_le()`, so on little-endian Windows the octets
+    /// ended up reversed and the same IPv4 address built from a string did not match one built
+    /// from an `Ipv4Addr`.
     fn ipv4_to_in_addr(address: Ipv4Addr) -> IN_ADDR {
         IN_ADDR {
             S_un: IN_ADDR_0 {
@@ -226,13 +227,8 @@ impl SockAddrStorage {
 
     /// Constructs a new `SockAddrStorage` from a `SOCKADDR_IN` struct.
     ///
-    /// # Safety
-    ///
-    /// This function uses `MaybeUninit` to safely create an uninitialized
-    /// `SOCKADDR_STORAGE` instance, and then it copies the `SOCKADDR_IN` contents
-    /// into the `SOCKADDR_STORAGE` without overlapping.
-    /// Before constructing the `SockAddrStorage`, it ensures that the contents
-    /// are valid using the `assume_init()` method.
+    /// The storage is fully zero-initialized and the `SOCKADDR_IN` is copied over its leading
+    /// bytes, so the result is always fully initialized.
     pub fn from_sockaddr_in(address: SOCKADDR_IN) -> Self {
         // Zero-initialize the storage so the bytes beyond `SOCKADDR_IN` are well-defined, then
         // copy the source over the leading bytes.
@@ -253,13 +249,8 @@ impl SockAddrStorage {
 
     /// Constructs a new `SockAddrStorage` from a `SOCKADDR_IN6` struct.
     ///
-    /// # Safety
-    ///
-    /// This function uses `MaybeUninit` to safely create an uninitialized
-    /// `SOCKADDR_STORAGE` instance, and then it copies the `SOCKADDR_IN6` contents
-    /// into the `SOCKADDR_STORAGE` without overlapping.
-    /// Before constructing the `SockAddrStorage`, it ensures that the contents
-    /// are valid using the `assume_init()` method.
+    /// The storage is fully zero-initialized and the `SOCKADDR_IN6` is copied over its leading
+    /// bytes, so the result is always fully initialized.
     pub fn from_sockaddr_in6(address: SOCKADDR_IN6) -> Self {
         // Zero-initialize the storage so the bytes beyond `SOCKADDR_IN6` are well-defined, then
         // copy the source over the leading bytes.

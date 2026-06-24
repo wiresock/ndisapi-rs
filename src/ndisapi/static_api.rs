@@ -419,7 +419,9 @@ impl Ndisapi {
 
     /// Writes a `REG_DWORD` value to an open registry key.
     fn set_registry_dword(hkey: HKEY, value_name: PCWSTR, value: u32) -> Result<()> {
-        let bytes = value.to_ne_bytes();
+        // `REG_DWORD` is little-endian by definition; `to_le_bytes` documents that intent
+        // rather than relying on the host happening to be little-endian.
+        let bytes = value.to_le_bytes();
         unsafe { RegSetValueExW(hkey, value_name, Some(0), REG_DWORD, Some(&bytes)) }.ok()
     }
 

@@ -145,10 +145,17 @@ impl Ndisapi {
                 let adapter_count = (adapters.adapter_count as usize).min(ADAPTER_LIST_SIZE);
 
                 for i in 0..adapter_count {
-                    // Adapter names are NUL-terminated byte strings. Use a lossy conversion so a
-                    // non-UTF-8 name from the driver cannot panic the enumeration.
-                    let adapter_name = String::from_utf8_lossy(&adapters.adapter_name_list[i]);
-                    let adapter_name = adapter_name.trim_end_matches(char::from(0)).to_owned();
+                    // Adapter names are NUL-terminated C strings inside a fixed-size buffer.
+                    // Convert only the bytes up to the first NUL so any garbage following the
+                    // terminator is ignored, and use a lossy conversion so a non-UTF-8 name from
+                    // the driver cannot panic the enumeration.
+                    let name_bytes = &adapters.adapter_name_list[i];
+                    let name_len = name_bytes
+                        .iter()
+                        .position(|&b| b == 0)
+                        .unwrap_or(name_bytes.len());
+                    let adapter_name =
+                        String::from_utf8_lossy(&name_bytes[..name_len]).into_owned();
                     let next = NetworkAdapterInfo::new(
                         adapter_name,
                         adapters.adapter_handle[i],
