@@ -122,21 +122,21 @@ fn main() -> Result<()> {
             packets_number = packets_number.saturating_sub(packets_read);
 
             // Process each packet.
-            for i in 0..packets_read {
-                let direction_flags = packets[i].get_device_flags();
+            for (i, packet) in packets.iter().take(packets_read).enumerate() {
+                let direction_flags = packet.get_device_flags();
 
                 if verbose {
                     // Print packet direction and remaining packets.
                     if direction_flags == DirectionFlags::PACKET_FLAG_ON_SEND {
                         println!(
                             "\nMSTCP --> Interface ({} bytes) remaining packets {}\n",
-                            packets[i].get_length(),
+                            packet.get_length(),
                             packets_number + (packets_read - i)
                         );
                     } else {
                         println!(
                             "\nInterface --> MSTCP ({} bytes) remaining packets {}\n",
-                            packets[i].get_length(),
+                            packet.get_length(),
                             packets_number + (packets_read - i)
                         );
                     }
@@ -144,13 +144,13 @@ fn main() -> Result<()> {
 
                 if verbose {
                     // Print packet information
-                    print_packet_info(&packets[i]);
+                    print_packet_info(packet);
                 }
 
                 if direction_flags == DirectionFlags::PACKET_FLAG_ON_SEND {
-                    to_adapter.push(&packets[i])?;
+                    to_adapter.push(packet)?;
                 } else {
-                    to_mstcp.push(&packets[i])?;
+                    to_mstcp.push(packet)?;
                 }
             }
 

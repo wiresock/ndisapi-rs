@@ -102,7 +102,7 @@ fn main() -> Result<()> {
             // zero initialize the vector allocated memory and then set a vector length to one
             unsafe {
                 write_bytes::<u8>(
-                    mem::transmute(ras_links_vec.as_mut_ptr()),
+                    mem::transmute::<*mut RasLinks, *mut u8>(ras_links_vec.as_mut_ptr()),
                     0,
                     size_of::<RasLinks>(),
                 );

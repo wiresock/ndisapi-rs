@@ -312,7 +312,7 @@ impl Ndisapi {
 
         let friendly_name_key = format!(
             "SYSTEM\\CurrentControlSet\\Control\\Network\\{{4D36E972-E325-11CE-BFC1-08002BE10318}}\\{}\\Connection",
-            &adapter_name
+            adapter_name
         );
 
         // Convert the string to UTF16 array and get a pointer to it as PCWSTR

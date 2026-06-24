@@ -40,7 +40,7 @@ async fn async_loop(adapter: &mut AsyncNdisapiAdapter) -> Result<()> {
                 Err(err) => println!("Error sending packet to adapter. Error code = {err}"),
             };
         } else {
-            match adapter.send_packet_to_mstcp(&mut packet) {
+            match adapter.send_packet_to_mstcp(&packet) {
                 Ok(_) => {}
                 Err(err) => println!("Error sending packet to mstcp. Error code = {err}"),
             }
@@ -104,6 +104,9 @@ async fn main() -> Result<()> {
     interface_index -= 1;
 
     // Create a new Ndisapi driver instance.
+    // The async API takes an `Arc<Ndisapi>`; `Ndisapi` is intentionally not `Send`/`Sync`
+    // (it owns a raw `HANDLE`), so clippy's `Arc<!Send + !Sync>` suggestion does not apply here.
+    #[allow(clippy::arc_with_non_send_sync)]
     let driver = Arc::new(
         Ndisapi::new("NDISRD").expect("WinpkFilter driver is not installed or failed to load!"),
     );

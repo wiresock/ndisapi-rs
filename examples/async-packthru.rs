@@ -515,7 +515,7 @@ async fn update_display(shared_table: Arc<Mutex<HashMap<PacketInfo, u32>>>) {
             .iter()
             .map(|(pi, &count)| (pi, count))
             .collect();
-        counts.sort_by(|a, b| b.1.cmp(&a.1));
+        counts.sort_by_key(|c| std::cmp::Reverse(c.1));
         let top_entries = &counts[..std::cmp::min(10, counts.len())];
 
         for (packet_info, count) in top_entries {
@@ -668,6 +668,9 @@ async fn main() -> Result<()> {
     interface_index -= 1;
 
     // Create a new Ndisapi driver instance.
+    // The async API takes an `Arc<Ndisapi>`; `Ndisapi` is intentionally not `Send`/`Sync`
+    // (it owns a raw `HANDLE`), so clippy's `Arc<!Send + !Sync>` suggestion does not apply here.
+    #[allow(clippy::arc_with_non_send_sync)]
     let driver = Arc::new(
         Ndisapi::new("NDISRD").expect("WinpkFilter driver is not installed or failed to load!"),
     );

@@ -263,7 +263,7 @@ impl IphlpNetworkAdapterInfo {
         // create the registry key path for the adapter's connection settings
         let friendly_name_key = format!(
         "SYSTEM\\CurrentControlSet\\Control\\Network\\{{4D36E972-E325-11CE-BFC1-08002BE10318}}\\{}\\Connection",
-        &self.adapter_name
+        self.adapter_name
     );
 
         // Convert the string to UTF16 array and get a pointer to it as PCWSTR
