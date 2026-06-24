@@ -540,7 +540,7 @@ mod tests {
         let sockaddr_in = SOCKADDR_IN {
             sin_family: AF_INET,
             sin_port: 0,
-            sin_addr: unsafe { mem::transmute::<Ipv4Addr, IN_ADDR>(ipv4) },
+            sin_addr: ipv4.into(),
             sin_zero: [0; 8],
         };
         let ip_address_info = SockAddrStorage::from_sockaddr_in(sockaddr_in);
@@ -553,7 +553,7 @@ mod tests {
             sin6_family: AF_INET6,
             sin6_port: 0,
             sin6_flowinfo: 0,
-            sin6_addr: unsafe { mem::transmute::<Ipv6Addr, IN6_ADDR>(ipv6) },
+            sin6_addr: ipv6.into(),
             Anonymous: SOCKADDR_IN6_0 { sin6_scope_id: 0 },
         };
         let ip_address_info = SockAddrStorage::from_sockaddr_in6(sockaddr_in6);

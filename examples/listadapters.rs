@@ -2,10 +2,7 @@
 /// adapter name conversion functions, and `Ndisapi::get_mtu_decrement` and etc.. It retrieves information about the
 /// network interfaces, including their indexes, which can be passed to the `packthru` and `passthru`
 /// examples. The collected information is dumped to the console screen.
-use std::{
-    mem::{self, size_of},
-    ptr::write_bytes,
-};
+use std::{mem::size_of, ptr::write_bytes};
 
 use ndisapi::{IphlpNetworkAdapterInfo, MacAddress, Ndisapi, PacketOidData, RasLinks};
 use windows::core::Result;
@@ -102,7 +99,7 @@ fn main() -> Result<()> {
             // zero initialize the vector allocated memory and then set a vector length to one
             unsafe {
                 write_bytes::<u8>(
-                    mem::transmute::<*mut RasLinks, *mut u8>(ras_links_vec.as_mut_ptr()),
+                    ras_links_vec.as_mut_ptr().cast::<u8>(),
                     0,
                     size_of::<RasLinks>(),
                 );
