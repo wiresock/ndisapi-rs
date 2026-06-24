@@ -14,7 +14,7 @@
 //!   the conditions for filtering at specific layers.
 //!
 //! * [`base`] - Provides Rust equivalents of several structures used in the NDISAPI Rust library
-//!   for communicating with the Windows Packet Filter driver. he structures in this submodule are related
+//!   for communicating with the Windows Packet Filter driver. The structures in this submodule are related
 //!   to network adapters, Ethernet packets, adapter events, and Remote Access Service (RAS) links.
 //!
 //! * [`ioctl`] - Provides a collection of constants for IOCTL (Input/Output Control) codes and
