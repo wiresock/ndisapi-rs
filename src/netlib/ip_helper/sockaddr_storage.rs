@@ -98,8 +98,13 @@ impl SockAddrStorage {
         Ok(Self(sockaddr_storage))
     }
 
-    /// Builds an `IN_ADDR` from an `Ipv4Addr`, storing the four octets in network byte order
-    /// (the in-memory layout the Windows socket APIs expect) regardless of host endianness.
+    /// Builds an `IN_ADDR` from an `Ipv4Addr`.
+    ///
+    /// `u32::from_ne_bytes(address.octets())` lays the four octets out in memory as
+    /// `[a, b, c, d]` (first octet at the lowest address) regardless of host endianness, which
+    /// is the on-the-wire octet order `IN_ADDR.S_un.S_addr` is required to hold. This is about
+    /// the byte layout of the field, not the numeric value of the `u32` (that value differs by
+    /// host endianness, but the stored bytes do not).
     ///
     /// Centralizing this conversion keeps every `SockAddrStorage` constructor consistent.
     /// Previously the constructors disagreed: `from_ipv4_addr` used `to_be()` while
