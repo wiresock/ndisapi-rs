@@ -20,7 +20,7 @@ use std::sync::Arc;
 use windows::{
     core::Result,
     Win32::{
-        Foundation::{HANDLE, WIN32_ERROR},
+        Foundation::{CloseHandle, HANDLE, WIN32_ERROR},
         System::Threading::CreateEventW,
     },
 };
@@ -78,13 +78,26 @@ impl AsyncNdisapiAdapter {
             CreateEventW(None, true, false, None)?
         };
 
-        // Setting the event for packet capture for the specified adapter.
+        // Hand the event to the `Win32EventStream` first. On success the stream owns the handle
+        // (and its wait registration) and closes it in its own `Drop`. If the stream cannot be
+        // created the handle is not yet owned by anything, so close it here to avoid leaking it.
+        let notif = match Win32EventStream::new(event_handle) {
+            Ok(notif) => notif,
+            Err(e) => {
+                let _ = unsafe { CloseHandle(event_handle) };
+                return Err(e);
+            }
+        };
+
+        // Register the event with the driver for packet-capture notifications. If this fails,
+        // `notif` is dropped, which unregisters the wait and closes the event handle — so the
+        // handle does not leak on this path either.
         driver.set_packet_event(adapter_handle, event_handle)?;
 
         Ok(Self {
             adapter_handle,
             driver,
-            notif: Win32EventStream::new(event_handle)?, // Creating a new Win32EventStream with the event handle.
+            notif,
         })
     }
 
@@ -227,7 +240,7 @@ impl AsyncNdisapiAdapter {
     /// # Arguments
     ///
     /// * `packet` - An `IntermediateBuffer` that will be encapsulated in an `EthPacket`
-    /// representing the Ethernet packet to be sent.
+    ///   representing the Ethernet packet to be sent.
     ///
     /// # Safety
     ///
@@ -277,7 +290,7 @@ impl AsyncNdisapiAdapter {
     ///
     /// # Returns
     ///
-    /// On successful operation, this function returns an `Ok(usize)` that represents the number of packets successfully sent to the network adapter. If the operation fails, an error is returned.
+    /// On successful operation, this function returns an `Ok(usize)` with the number of packets that were submitted to the driver for sending. If the operation fails, an error is returned.
     pub fn send_packets_to_adapter<'a, const N: usize>(
         &mut self,
         packets: impl IntoIterator<Item = &'a IntermediateBuffer>,
@@ -287,10 +300,14 @@ impl AsyncNdisapiAdapter {
             ndisapi::EthMRequest::<N>::from_iter(self.adapter_handle, packets.into_iter());
 
         // Try to send packets to the network adapter.
-        match self.driver.send_packets_to_adapter(&request) {
-            Ok(_) => Ok(request.get_packet_success() as usize),
-            Err(err) => Err(err),
-        }
+        //
+        // The send IOCTL takes no output buffer, so the driver never writes back the
+        // `packet_success` counter (unlike the read path); it would always read as 0 here.
+        // Report the number of packets submitted in the request instead, which is the
+        // meaningful value on the success path.
+        self.driver
+            .send_packets_to_adapter(&request)
+            .map(|_| request.get_packet_number() as usize)
     }
 
     /// Sends an Ethernet packet upwards through the network stack to the Microsoft TCP/IP protocol driver.
@@ -346,7 +363,7 @@ impl AsyncNdisapiAdapter {
     ///
     /// # Returns
     ///
-    /// On successful operation, this function returns `Ok(usize)`, where `usize` is the number of packets sent. If the operation fails, an error is returned.
+    /// On successful operation, this function returns `Ok(usize)`, where `usize` is the number of packets submitted to the driver for sending. If the operation fails, an error is returned.
     pub fn send_packets_to_mstcp<'a, const N: usize>(
         &mut self,
         packets: impl IntoIterator<Item = &'a IntermediateBuffer>,
@@ -356,10 +373,13 @@ impl AsyncNdisapiAdapter {
             ndisapi::EthMRequest::<N>::from_iter(self.adapter_handle, packets.into_iter());
 
         // Try to send packets upwards the network stack.
-        match self.driver.send_packets_to_mstcp(&request) {
-            Ok(_) => Ok(request.get_packet_success() as usize),
-            Err(err) => Err(err),
-        }
+        //
+        // As with `send_packets_to_adapter`, the send IOCTL has no output buffer, so
+        // `packet_success` is never populated by the driver. Return the number of packets
+        // submitted in the request rather than the always-zero success counter.
+        self.driver
+            .send_packets_to_mstcp(&request)
+            .map(|_| request.get_packet_number() as usize)
     }
 }
 

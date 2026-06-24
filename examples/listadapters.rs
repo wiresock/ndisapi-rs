@@ -82,7 +82,9 @@ fn main() -> Result<()> {
             OID_802_3_CURRENT_ADDRESS,
             MacAddress::default(),
         );
-        if let Err(err) = driver.ndis_get_request::<_>(&mut current_address_request) {
+        // SAFETY: `MacAddress` wraps `[u8; 6]`, a plain-old-data type for which every byte
+        // pattern returned by the driver is a valid value.
+        if let Err(err) = unsafe { driver.ndis_get_request::<_>(&mut current_address_request) } {
             println!("Getting OID_802_3_CURRENT_ADDRESS Error: {}", err.message(),)
         } else {
             println!(

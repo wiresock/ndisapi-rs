@@ -285,7 +285,7 @@ impl PacketInfo {
     /// All other fields are set to `None` because they are not applicable to ARP packets.
     fn handle_arp_packet(eth_hdr: &EthernetFrame<&[u8]>) -> PacketInfo {
         let arp_packet = ArpPacket::new_unchecked(eth_hdr.payload());
-        
+
         // Convert slices to fixed-size arrays
         let src_bytes: [u8; 4] = arp_packet
             .source_protocol_addr()
@@ -295,7 +295,7 @@ impl PacketInfo {
             .target_protocol_addr()
             .try_into()
             .unwrap_or([0u8; 4]);
-        
+
         PacketInfo {
             ethertype: EthernetProtocol::Arp,
             src_addr: Some(IpAddress::Ipv4(Ipv4Address::from_octets(src_bytes))),

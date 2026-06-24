@@ -161,7 +161,10 @@ impl IphlpNetworkAdapterInfo {
         let mut status = true;
 
         for address in addresses.iter() {
-            status = unsafe { DeleteIpForwardEntry2(address) }.is_ok()
+            // Accumulate failures: every entry must be deleted for the call to report success.
+            // Previously the result of the final iteration overwrote all earlier ones, hiding
+            // partial failures.
+            status &= unsafe { DeleteIpForwardEntry2(address) }.is_ok();
         }
 
         status
@@ -185,16 +188,19 @@ impl IphlpNetworkAdapterInfo {
             Ok(_) => {
                 let num_entries = unsafe { (*table).NumEntries };
 
+                // Track whether every matching route was removed successfully rather than
+                // unconditionally returning `true` and silently dropping individual failures.
+                let mut success = true;
                 for i in 0..num_entries {
                     let entry = unsafe { &mut (*table).Table[i as usize] };
 
                     if IfLuid::from(entry.InterfaceLuid) == self.luid {
-                        let _ = unsafe { DeleteIpForwardEntry2(entry) };
+                        success &= unsafe { DeleteIpForwardEntry2(entry) }.is_ok();
                     }
                 }
 
                 unsafe { FreeMibTable(table as *mut _) };
-                true
+                success
             }
             Err(_) => false,
         }

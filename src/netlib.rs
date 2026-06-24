@@ -5,11 +5,11 @@
 //! # Submodules
 //!
 //! * [`ip_helper`] - Provides a set of helpers for working with the Windows IP Helper API.
-//! This includes types for working with network adapter information, IP gateway information, and
-//! socket address storage.
+//!   This includes types for working with network adapter information, IP gateway information, and
+//!   socket address storage.
 //!
 //! * [`net`] - Provides a set of networking utilities for Rust. This includes a type for
-//! representing MAC addresses.
+//!   representing MAC addresses.
 
 // Allowing unused imports in this module because they are re-exports
 // intended for end users of the library. These imports are not directly

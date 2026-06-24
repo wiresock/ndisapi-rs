@@ -14,7 +14,6 @@
 //! assert_eq!(socket_addr.ip(), ipv4_addr);
 //! ```
 
-use std::mem::MaybeUninit;
 use std::{
     mem,
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
@@ -44,9 +43,7 @@ impl PartialEq for SockAddrStorage {
                 let other_addr: &SOCKADDR_IN =
                     unsafe { &*(&other.0 as *const _ as *const SOCKADDR_IN) };
                 self_addr.sin_port == other_addr.sin_port
-                    && unsafe {
-                        self_addr.sin_addr.S_un.S_addr == other_addr.sin_addr.S_un.S_addr
-                    }
+                    && unsafe { self_addr.sin_addr.S_un.S_addr == other_addr.sin_addr.S_un.S_addr }
             }
             AF_INET6 => {
                 let self_addr: &SOCKADDR_IN6 =
@@ -101,6 +98,27 @@ impl SockAddrStorage {
         Ok(Self(sockaddr_storage))
     }
 
+    /// Builds an `IN_ADDR` from an `Ipv4Addr`.
+    ///
+    /// `u32::from_ne_bytes(address.octets())` lays the four octets out in memory as
+    /// `[a, b, c, d]` (first octet at the lowest address) regardless of host endianness, which
+    /// is the on-the-wire octet order `IN_ADDR.S_un.S_addr` is required to hold. This is about
+    /// the byte layout of the field, not the numeric value of the `u32` (that value differs by
+    /// host endianness, but the stored bytes do not).
+    ///
+    /// Centralizing this conversion keeps every `SockAddrStorage` constructor consistent.
+    /// Previously the constructors disagreed: `from_ipv4_addr` used `to_be()` while
+    /// `socket_addr_to_sockaddr_storage` used `to_le()`, so on little-endian Windows the octets
+    /// ended up reversed and the same IPv4 address built from a string did not match one built
+    /// from an `Ipv4Addr`.
+    fn ipv4_to_in_addr(address: Ipv4Addr) -> IN_ADDR {
+        IN_ADDR {
+            S_un: IN_ADDR_0 {
+                S_addr: u32::from_ne_bytes(address.octets()),
+            },
+        }
+    }
+
     /// Converts a `SocketAddr` to a `SOCKADDR_STORAGE` structure.
     ///
     /// # Arguments
@@ -119,11 +137,7 @@ impl SockAddrStorage {
                 let sockaddr_in: SOCKADDR_IN = SOCKADDR_IN {
                     sin_family: AF_INET,
                     sin_port: 0,
-                    sin_addr: IN_ADDR {
-                        S_un: IN_ADDR_0 {
-                            S_addr: u32::from(ipv4_addr).to_le(),
-                        },
-                    },
+                    sin_addr: Self::ipv4_to_in_addr(ipv4_addr),
                     sin_zero: [0; 8],
                 };
 
@@ -158,111 +172,114 @@ impl SockAddrStorage {
 
     /// Constructs a new `SockAddrStorage` from a `SOCKADDR` struct.
     ///
-    /// # Safety
-    ///
-    /// This function uses `MaybeUninit` to safely create an uninitialized
-    /// `SOCKADDR_STORAGE` instance, and then it copies the `SOCKADDR` contents
-    /// into the `SOCKADDR_STORAGE` without overlapping.
-    /// Before constructing the `SockAddrStorage`, it ensures that the contents
-    /// are valid using the `assume_init()` method.
+    /// Note that a by-value `SOCKADDR` is only 16 bytes and therefore cannot carry an IPv6
+    /// address; prefer [`from_raw_sockaddr`](Self::from_raw_sockaddr) when converting the
+    /// `SOCKET_ADDRESS` values returned by the Windows IP Helper API, as it honors the actual
+    /// address length.
     pub fn from_sockaddr(address: SOCKADDR) -> Self {
-        // Create a `MaybeUninit` instance for `SOCKADDR_STORAGE`.
-        let mut storage: MaybeUninit<SOCKADDR_STORAGE> = MaybeUninit::uninit();
+        // Start from a fully zeroed storage so any bytes beyond the `SOCKADDR` are well-defined
+        // rather than uninitialized (the previous implementation `assume_init`-ed a partially
+        // copied buffer, leaving the trailing bytes uninitialized and reads of them undefined).
+        let mut storage: SOCKADDR_STORAGE = unsafe { mem::zeroed() };
 
-        // Get pointers to the `SOCKADDR` and `SOCKADDR_STORAGE` instances.
-        let src_ptr = &address as *const _ as *const u8;
-        let dst_ptr = storage.as_mut_ptr() as *mut u8;
-
-        // Copy the `SOCKADDR` contents into the `SOCKADDR_STORAGE` without overlapping.
         // # Safety: The source and destination pointers are non-overlapping, and
         // the size of the `SOCKADDR` struct is known at compile-time.
         unsafe {
-            std::ptr::copy_nonoverlapping(src_ptr, dst_ptr, std::mem::size_of::<SOCKADDR>());
+            std::ptr::copy_nonoverlapping(
+                &address as *const _ as *const u8,
+                &mut storage as *mut _ as *mut u8,
+                std::mem::size_of::<SOCKADDR>(),
+            );
         }
-
-        // Ensure that the contents are valid before constructing the `SockAddrStorage`.
-        // # Safety: `storage` has been properly initialized by the `copy_nonoverlapping`
-        // function above, so it's safe to call `assume_init()`.
-        let storage = unsafe { storage.assume_init() };
 
         SockAddrStorage(storage)
     }
 
-    /// Constructs a new `SockAddrStorage` from a `SOCKADDR_IN` struct.
+    /// Constructs a new `SockAddrStorage` from a raw `SOCKADDR` pointer and its byte length.
+    ///
+    /// This is the correct way to convert the `SOCKET_ADDRESS` values returned by the Windows
+    /// IP Helper API. The pointed-to structure is a family-specific socket address
+    /// (`SOCKADDR_IN` for IPv4, `SOCKADDR_IN6` for IPv6) whose real size is reported by the
+    /// `iSockaddrLength` field. Dereferencing the pointer as a by-value 16-byte `SOCKADDR`
+    /// truncates IPv6 addresses, which is why this length-aware variant exists.
+    ///
+    /// Returns `None` if `sockaddr` is null or `len` is zero.
     ///
     /// # Safety
     ///
-    /// This function uses `MaybeUninit` to safely create an uninitialized
-    /// `SOCKADDR_STORAGE` instance, and then it copies the `SOCKADDR_IN` contents
-    /// into the `SOCKADDR_STORAGE` without overlapping.
-    /// Before constructing the `SockAddrStorage`, it ensures that the contents
-    /// are valid using the `assume_init()` method.
+    /// `sockaddr` must either be null or point to at least `len` initialized, readable bytes
+    /// that remain valid for the duration of the call.
+    pub unsafe fn from_raw_sockaddr(sockaddr: *const SOCKADDR, len: usize) -> Option<Self> {
+        if sockaddr.is_null() || len == 0 {
+            return None;
+        }
+
+        // Zero-initialize first, then copy only the bytes the source actually holds, capped at
+        // the storage capacity. Any uncopied trailing bytes stay well-defined (zero).
+        let mut storage: SOCKADDR_STORAGE = unsafe { mem::zeroed() };
+        let copy_len = len.min(std::mem::size_of::<SOCKADDR_STORAGE>());
+
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                sockaddr as *const u8,
+                &mut storage as *mut _ as *mut u8,
+                copy_len,
+            );
+        }
+
+        Some(SockAddrStorage(storage))
+    }
+
+    /// Constructs a new `SockAddrStorage` from a `SOCKADDR_IN` struct.
+    ///
+    /// The storage is fully zero-initialized and the `SOCKADDR_IN` is copied over its leading
+    /// bytes, so the result is always fully initialized.
     pub fn from_sockaddr_in(address: SOCKADDR_IN) -> Self {
-        // Create a `MaybeUninit` instance for `SOCKADDR_STORAGE`.
-        let mut storage: MaybeUninit<SOCKADDR_STORAGE> = MaybeUninit::uninit();
+        // Zero-initialize the storage so the bytes beyond `SOCKADDR_IN` are well-defined, then
+        // copy the source over the leading bytes.
+        let mut storage: SOCKADDR_STORAGE = unsafe { mem::zeroed() };
 
-        // Get pointers to the `SOCKADDR_IN` and `SOCKADDR_STORAGE` instances.
-        let src_ptr = &address as *const _ as *const u8;
-        let dst_ptr = storage.as_mut_ptr() as *mut u8;
-
-        // Copy the `SOCKADDR_IN` contents into the `SOCKADDR_STORAGE` without overlapping.
         // # Safety: The source and destination pointers are non-overlapping, and
         // the size of the `SOCKADDR_IN` struct is known at compile-time.
         unsafe {
-            std::ptr::copy_nonoverlapping(src_ptr, dst_ptr, std::mem::size_of::<SOCKADDR_IN>());
+            std::ptr::copy_nonoverlapping(
+                &address as *const _ as *const u8,
+                &mut storage as *mut _ as *mut u8,
+                std::mem::size_of::<SOCKADDR_IN>(),
+            );
         }
-
-        // Ensure that the contents are valid before constructing the `SockAddrStorage`.
-        // # Safety: `storage` has been properly initialized by the `copy_nonoverlapping`
-        // function above, so it's safe to call `assume_init()`.
-        let storage = unsafe { storage.assume_init() };
 
         SockAddrStorage(storage)
     }
 
     /// Constructs a new `SockAddrStorage` from a `SOCKADDR_IN6` struct.
     ///
-    /// # Safety
-    ///
-    /// This function uses `MaybeUninit` to safely create an uninitialized
-    /// `SOCKADDR_STORAGE` instance, and then it copies the `SOCKADDR_IN6` contents
-    /// into the `SOCKADDR_STORAGE` without overlapping.
-    /// Before constructing the `SockAddrStorage`, it ensures that the contents
-    /// are valid using the `assume_init()` method.
+    /// The storage is fully zero-initialized and the `SOCKADDR_IN6` is copied over its leading
+    /// bytes, so the result is always fully initialized.
     pub fn from_sockaddr_in6(address: SOCKADDR_IN6) -> Self {
-        // Create a `MaybeUninit` instance for `SOCKADDR_STORAGE`.
-        let mut storage: MaybeUninit<SOCKADDR_STORAGE> = MaybeUninit::uninit();
+        // Zero-initialize the storage so the bytes beyond `SOCKADDR_IN6` are well-defined, then
+        // copy the source over the leading bytes.
+        let mut storage: SOCKADDR_STORAGE = unsafe { mem::zeroed() };
 
-        // Get pointers to the `SOCKADDR_IN6` and `SOCKADDR_STORAGE` instances.
-        let src_ptr = &address as *const _ as *const u8;
-        let dst_ptr = storage.as_mut_ptr() as *mut u8;
-
-        // Copy the `SOCKADDR_IN6` contents into the `SOCKADDR_STORAGE` without overlapping.
         // # Safety: The source and destination pointers are non-overlapping, and
         // the size of the `SOCKADDR_IN6` struct is known at compile-time.
         unsafe {
-            std::ptr::copy_nonoverlapping(src_ptr, dst_ptr, std::mem::size_of::<SOCKADDR_IN6>());
+            std::ptr::copy_nonoverlapping(
+                &address as *const _ as *const u8,
+                &mut storage as *mut _ as *mut u8,
+                std::mem::size_of::<SOCKADDR_IN6>(),
+            );
         }
-
-        // Ensure that the contents are valid before constructing the `SockAddrStorage`.
-        // # Safety: `storage` has been properly initialized by the `copy_nonoverlapping`
-        // function above, so it's safe to call `assume_init()`.
-        let storage = unsafe { storage.assume_init() };
 
         SockAddrStorage(storage)
     }
 
     /// Constructs a new `SockAddrStorage` from an `Ipv4Addr` object.
     pub fn from_ipv4_addr(address: Ipv4Addr) -> Self {
-        let in_addr = IN_ADDR {
-            S_un: IN_ADDR_0 {
-                S_addr: u32::from(address).to_be(),
-            },
-        };
         let sockaddr = SOCKADDR_IN {
             sin_family: AF_INET,
             sin_port: 0,
-            sin_addr: in_addr,
+            sin_addr: Self::ipv4_to_in_addr(address),
             sin_zero: [0; 8],
         };
         SockAddrStorage::from_sockaddr_in(sockaddr)
@@ -577,5 +594,40 @@ mod tests {
         let ipv4 = SockAddrStorage::from_ipv4_addr(Ipv4Addr::new(127, 0, 0, 1));
         let ipv6 = SockAddrStorage::from_ipv6_addr(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1));
         assert_ne!(ipv4, ipv6);
+    }
+
+    #[test]
+    fn test_ipv4_stored_in_network_order() {
+        // The `S_addr` field must hold the octets in network byte order (first octet at the
+        // lowest address), which is what the Windows socket APIs expect.
+        let info = SockAddrStorage::from_ipv4_addr(Ipv4Addr::new(1, 2, 3, 4));
+        let sockaddr_in: &SOCKADDR_IN = unsafe { &*(&info.0 as *const _ as *const SOCKADDR_IN) };
+        let bytes = unsafe { sockaddr_in.sin_addr.S_un.S_addr }.to_ne_bytes();
+        assert_eq!(bytes, [1, 2, 3, 4]);
+    }
+
+    #[test]
+    fn test_from_ip_string_ipv4_roundtrip() {
+        let info = SockAddrStorage::from_ip_string("192.168.1.2").unwrap();
+        match info.to_socket_addr().unwrap() {
+            SocketAddr::V4(v4) => assert_eq!(*v4.ip(), Ipv4Addr::new(192, 168, 1, 2)),
+            _ => panic!("Expected SocketAddr::V4"),
+        }
+        // The string-based and `Ipv4Addr`-based constructors must agree on byte order.
+        assert_eq!(
+            info,
+            SockAddrStorage::from_ipv4_addr(Ipv4Addr::new(192, 168, 1, 2))
+        );
+    }
+
+    #[test]
+    fn test_from_ip_string_ipv6_roundtrip() {
+        let expected = Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 1);
+        let info = SockAddrStorage::from_ip_string("2001:db8::1").unwrap();
+        match info.to_socket_addr().unwrap() {
+            SocketAddr::V6(v6) => assert_eq!(*v6.ip(), expected),
+            _ => panic!("Expected SocketAddr::V6"),
+        }
+        assert_eq!(info, SockAddrStorage::from_ipv6_addr(expected));
     }
 }

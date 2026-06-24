@@ -36,7 +36,10 @@ impl IphlpNetworkAdapterInfo {
 
         net_row.Address.si_family = AF_INET;
         net_row.Address.Ipv4.sin_family = AF_INET;
-        net_row.Address.Ipv4.sin_addr.S_un.S_addr = u32::from(address);
+        // Store the octets in network byte order, consistent with `add_unicast_address_ipv4`
+        // and `add_routes_ipv4`. Using `u32::from(address)` here wrote the bytes in host order,
+        // which reversed the address on little-endian Windows.
+        net_row.Address.Ipv4.sin_addr.S_un.S_addr = u32::from_ne_bytes(address.octets());
         net_row.InterfaceIndex = self.if_index;
         net_row.InterfaceLuid = self.luid.into();
         net_row.PhysicalAddress.copy_from_slice(&hw_address);

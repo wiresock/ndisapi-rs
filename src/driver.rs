@@ -10,25 +10,25 @@
 //! # Submodules
 //!
 //! * [`constants`] - Provides various constants and bitflag structures used to configure the
-//! packet filtering mechanism, specify filtering options for different protocols, and define
-//! the conditions for filtering at specific layers.
+//!   packet filtering mechanism, specify filtering options for different protocols, and define
+//!   the conditions for filtering at specific layers.
 //!
 //! * [`base`] - Provides Rust equivalents of several structures used in the NDISAPI Rust library
-//! for communicating with the Windows Packet Filter driver. he structures in this submodule are related
-//! to network adapters, Ethernet packets, adapter events, and Remote Access Service (RAS) links.
+//!   for communicating with the Windows Packet Filter driver. The structures in this submodule are related
+//!   to network adapters, Ethernet packets, adapter events, and Remote Access Service (RAS) links.
 //!
 //! * [`ioctl`] - Provides a collection of constants for IOCTL (Input/Output Control) codes and
-//! the `ctl_code` function used to generate these codes. IOCTL codes are used to communicate
-//! with the Windows Packet Filter driver to perform various operations.
+//!   the `ctl_code` function used to generate these codes. IOCTL codes are used to communicate
+//!   with the Windows Packet Filter driver to perform various operations.
 //!
 //! * [`filters`] - Provides structures for specifying filter conditions and actions for various protocols,
-//! including Ethernet 802.3, IPv4, IPv6, TCP, UDP, and ICMP. These structures allow users to define complex
-//! filtering rules based on multiple packet fields and layers.
+//!   including Ethernet 802.3, IPv4, IPv6, TCP, UDP, and ICMP. These structures allow users to define complex
+//!   filtering rules based on multiple packet fields and layers.
 //!
 //! * [`fastio`] - Provides Rust equivalents of several structures related to Fast I/O operations
-//! for the NDISAPI Rust library used in communicating with the Windows Packet Filter driver.
-//! The structures in this submodule are related to Fast I/O sections, which include headers and packet data,
-//! and are involved in read and write operations.
+//!   for the NDISAPI Rust library used in communicating with the Windows Packet Filter driver.
+//!   The structures in this submodule are related to Fast I/O sections, which include headers and packet data,
+//!   and are involved in read and write operations.
 //!
 
 // Submodules

@@ -11,12 +11,28 @@ use windows::{
     core::{s, w, Result, PCWSTR, PWSTR},
     Win32::System::Registry::{
         RegCloseKey, RegEnumKeyExW, RegOpenKeyExW, RegQueryValueExA, RegQueryValueExW,
-        RegSetValueExW, HKEY, HKEY_LOCAL_MACHINE, KEY_READ, KEY_WRITE, REG_DWORD, REG_VALUE_TYPE,
+        RegSetValueExW, HKEY, HKEY_LOCAL_MACHINE, KEY_READ, KEY_WRITE, REG_DWORD, REG_SAM_FLAGS,
+        REG_VALUE_TYPE,
     },
 };
 
 use super::Ndisapi;
+use std::mem::size_of;
 use std::str;
+
+/// A small RAII wrapper that closes an owned registry key (`HKEY`) when it goes out of scope.
+///
+/// Several registry helpers previously leaked their `HKEY` on the success path; wrapping the
+/// handle in this guard guarantees `RegCloseKey` is called on every exit path.
+struct RegKeyGuard(HKEY);
+
+impl Drop for RegKeyGuard {
+    fn drop(&mut self) {
+        // Closing an already-invalid handle simply fails and is harmless, but the guard is only
+        // ever constructed from a successfully opened key.
+        let _ = unsafe { RegCloseKey(self.0) };
+    }
+}
 
 /// The registry key path for the network control class.
 const REGSTR_NETWORK_CONTROL_CLASS: ::windows::core::PCWSTR =
@@ -276,7 +292,6 @@ impl Ndisapi {
     /// # Returns
     ///
     /// * `Result<String>`: Returns a `Result` containing the user-friendly name of the network adapter if found, or an error otherwise.
-
     pub fn get_friendly_adapter_name(adapter_name: impl Into<String>) -> Result<String> {
         let mut adapter_name = adapter_name.into();
 
@@ -353,6 +368,63 @@ impl Ndisapi {
         }
     }
 
+    /// Opens the driver's parameters registry key with the requested access rights.
+    ///
+    /// Returns a [`RegKeyGuard`] that closes the key when dropped, so callers never have to
+    /// remember to call `RegCloseKey` on every exit path.
+    fn open_driver_registry_key(&self, access: REG_SAM_FLAGS) -> Result<RegKeyGuard> {
+        let mut hkey = HKEY::default();
+
+        unsafe {
+            RegOpenKeyExW(
+                HKEY_LOCAL_MACHINE,
+                self.get_driver_registry_key(),
+                Some(0),
+                access,
+                &mut hkey,
+            )
+        }
+        .ok()?;
+
+        Ok(RegKeyGuard(hkey))
+    }
+
+    /// Reads a `REG_DWORD` value from an open registry key.
+    ///
+    /// Returns `None` if the value is missing, is not of type `REG_DWORD`, or is not exactly
+    /// four bytes long. The destination is a genuine `&mut u32`, so the kernel never writes
+    /// through a pointer derived from a shared reference (which would be undefined behavior).
+    fn query_registry_dword(hkey: HKEY, value_name: PCWSTR) -> Option<u32> {
+        let mut value_type = REG_VALUE_TYPE::default();
+        let mut value = 0u32;
+        let mut data_size = size_of::<u32>() as u32;
+
+        let result = unsafe {
+            RegQueryValueExW(
+                hkey,
+                value_name,
+                None,
+                Some(&mut value_type),
+                Some(&mut value as *mut u32 as *mut u8),
+                Some(&mut data_size),
+            )
+        };
+
+        if result.is_ok() && value_type == REG_DWORD && data_size as usize == size_of::<u32>() {
+            Some(value)
+        } else {
+            None
+        }
+    }
+
+    /// Writes a `REG_DWORD` value to an open registry key.
+    fn set_registry_dword(hkey: HKEY, value_name: PCWSTR, value: u32) -> Result<()> {
+        // `REG_DWORD` is little-endian by definition; `to_le_bytes` documents that intent
+        // rather than relying on the host happening to be little-endian.
+        let bytes = value.to_le_bytes();
+        unsafe { RegSetValueExW(hkey, value_name, Some(0), REG_DWORD, Some(&bytes)) }.ok()
+    }
+
     /// This function sets a parameter in the registry key that the filter driver reads during its initialization.
     /// The value set in the registry is subtracted from the actual MTU (Maximum Transmission Unit) when it is requested
     /// by the MSTCP (Microsoft TCP/IP) from the network. Because this parameter is read during the initialization of the
@@ -366,33 +438,8 @@ impl Ndisapi {
     ///
     /// * `Result<()>` - Returns a `Result` that is `Ok(())` if the MTU decrement value is set successfully in the registry, or an error otherwise.
     pub fn set_mtu_decrement(&self, mtu_decrement: u32) -> Result<()> {
-        let mut hkey = HKEY::default();
-
-        let mut result = unsafe {
-            RegOpenKeyExW(
-                HKEY_LOCAL_MACHINE,
-                self.get_driver_registry_key(),
-                Some(0),
-                KEY_WRITE,
-                &mut hkey,
-            )
-        }
-        .ok();
-
-        if result.is_ok() {
-            result = unsafe {
-                RegSetValueExW(
-                    hkey,
-                    REGSTR_MTU_DECREMENT,
-                    Some(0),
-                    REG_DWORD,
-                    Some(mtu_decrement.to_ne_bytes().as_ref()),
-                )
-            }
-            .ok();
-        }
-
-        result
+        let hkey = self.open_driver_registry_key(KEY_WRITE)?;
+        Self::set_registry_dword(hkey.0, REGSTR_MTU_DECREMENT, mtu_decrement)
     }
 
     /// This function retrieves the value set by `set_mtu_decrement` from the registry. Note that if you have not
@@ -403,40 +450,8 @@ impl Ndisapi {
     ///
     /// * `Option<u32>` - Returns an `Option` containing the MTU decrement value if it is present in the registry and there are no errors, or `None` otherwise.
     pub fn get_mtu_decrement(&self) -> Option<u32> {
-        let mut hkey = HKEY::default();
-
-        let mut result = unsafe {
-            RegOpenKeyExW(
-                HKEY_LOCAL_MACHINE,
-                self.get_driver_registry_key(),
-                Some(0),
-                KEY_READ,
-                &mut hkey,
-            )
-        };
-
-        let mut value_type = REG_VALUE_TYPE::default();
-        let mtu_decrement = 0u32;
-        let mut data_size = std::mem::size_of::<u32>() as u32;
-
-        if result.is_ok() {
-            result = unsafe {
-                RegQueryValueExW(
-                    hkey,
-                    REGSTR_MTU_DECREMENT,
-                    None,
-                    Some(&mut value_type),
-                    Some(&mtu_decrement as *const u32 as *mut u8),
-                    Some(&mut data_size),
-                )
-            };
-        }
-
-        if result.is_ok() {
-            Some(mtu_decrement)
-        } else {
-            None
-        }
+        let hkey = self.open_driver_registry_key(KEY_READ).ok()?;
+        Self::query_registry_dword(hkey.0, REGSTR_MTU_DECREMENT)
     }
 
     /// This routine sets the default mode to be applied to each adapter as soon as it appears in the system.
@@ -452,31 +467,8 @@ impl Ndisapi {
     ///
     /// * `Result<()>` - Returns a `Result` indicating whether the operation succeeded or an error occurred.
     pub fn set_adapters_startup_mode(&self, startup_mode: u32) -> Result<()> {
-        let mut hkey = HKEY::default();
-
-        let mut result = unsafe {
-            RegOpenKeyExW(
-                HKEY_LOCAL_MACHINE,
-                self.get_driver_registry_key(),
-                Some(0),
-                KEY_WRITE,
-                &mut hkey,
-            )
-        };
-
-        if result.is_ok() {
-            result = unsafe {
-                RegSetValueExW(
-                    hkey,
-                    REGSTR_STARTUP_MODE,
-                    Some(0),
-                    REG_DWORD,
-                    Some(startup_mode.to_ne_bytes().as_ref()),
-                )
-            };
-        }
-
-        result.ok()
+        let hkey = self.open_driver_registry_key(KEY_WRITE)?;
+        Self::set_registry_dword(hkey.0, REGSTR_STARTUP_MODE, startup_mode)
     }
 
     /// Returns the current default filter mode value applied to each adapter when it appears in the system.
@@ -487,40 +479,8 @@ impl Ndisapi {
     /// * `Option<u32>` - Returns the current default startup mode as `Some(u32)` if the value is present in the registry,
     ///   or `None` if the value is not present or an error occurred.
     pub fn get_adapters_startup_mode(&self) -> Option<u32> {
-        let mut hkey = HKEY::default();
-
-        let mut result = unsafe {
-            RegOpenKeyExW(
-                HKEY_LOCAL_MACHINE,
-                self.get_driver_registry_key(),
-                Some(0),
-                KEY_READ,
-                &mut hkey,
-            )
-        };
-
-        let mut value_type = REG_VALUE_TYPE::default();
-        let startup_mode = 0u32;
-        let mut data_size = std::mem::size_of::<u32>() as u32;
-
-        if result.is_ok() {
-            result = unsafe {
-                RegQueryValueExW(
-                    hkey,
-                    REGSTR_STARTUP_MODE,
-                    None,
-                    Some(&mut value_type),
-                    Some(&startup_mode as *const u32 as *mut u8),
-                    Some(&mut data_size),
-                )
-            };
-        }
-
-        if result.is_ok() {
-            Some(startup_mode)
-        } else {
-            None
-        }
+        let hkey = self.open_driver_registry_key(KEY_READ).ok()?;
+        Self::query_registry_dword(hkey.0, REGSTR_STARTUP_MODE)
     }
 
     /// Sets the pool size multiplier for Windows Packet Filter driver in the Windows registry.
@@ -540,31 +500,8 @@ impl Ndisapi {
     /// * `Result<()>` - If the pool size multiplier is successfully set, returns `Ok(())`.
     ///   Otherwise, returns an `Err` with the error code.
     pub fn set_pool_size(&self, pool_size: u32) -> Result<()> {
-        let mut hkey = HKEY::default();
-
-        let mut result = unsafe {
-            RegOpenKeyExW(
-                HKEY_LOCAL_MACHINE,
-                self.get_driver_registry_key(),
-                Some(0),
-                KEY_WRITE,
-                &mut hkey,
-            )
-        };
-
-        if result.is_ok() {
-            result = unsafe {
-                RegSetValueExW(
-                    hkey,
-                    REGSTR_POOL_SIZE,
-                    Some(0),
-                    REG_DWORD,
-                    Some(pool_size.to_ne_bytes().as_ref()),
-                )
-            };
-        }
-
-        result.ok()
+        let hkey = self.open_driver_registry_key(KEY_WRITE)?;
+        Self::set_registry_dword(hkey.0, REGSTR_POOL_SIZE, pool_size)
     }
 
     /// Retrieves the pool size multiplier for the Windows Packet Filter driver from the Windows registry.
@@ -579,39 +516,7 @@ impl Ndisapi {
     /// * `Option<u32>` - The pool size multiplier retrieved from the registry.
     ///   If the value is not found or an error occurs, returns `None`.
     pub fn get_pool_size(&self) -> Option<u32> {
-        let mut hkey = HKEY::default();
-
-        let mut result = unsafe {
-            RegOpenKeyExW(
-                HKEY_LOCAL_MACHINE,
-                self.get_driver_registry_key(),
-                Some(0),
-                KEY_READ,
-                &mut hkey,
-            )
-        };
-
-        let mut value_type = REG_VALUE_TYPE::default();
-        let pool_size = 0u32;
-        let mut data_size = std::mem::size_of::<u32>() as u32;
-
-        if result.is_ok() {
-            result = unsafe {
-                RegQueryValueExW(
-                    hkey,
-                    REGSTR_POOL_SIZE,
-                    None,
-                    Some(&mut value_type),
-                    Some(&pool_size as *const u32 as *mut u8),
-                    Some(&mut data_size),
-                )
-            };
-        }
-
-        if result.is_ok() {
-            Some(pool_size)
-        } else {
-            None
-        }
+        let hkey = self.open_driver_registry_key(KEY_READ).ok()?;
+        Self::query_registry_dword(hkey.0, REGSTR_POOL_SIZE)
     }
 }
